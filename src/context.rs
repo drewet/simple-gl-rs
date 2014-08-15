@@ -35,11 +35,13 @@ impl Context {
                 // sleeping until next frame must be drawn
                 use std::io::timer;
                 timer::sleep({ 
+                    use std::time::Duration;
+
                     let now = time::precise_time_ns();
                     if next_loop < now {
-                        0
+                        Duration::nanoseconds(0)
                     } else {
-                        (next_loop - now) / (1000 * 1000)
+                        Duration::nanoseconds((next_loop - now) as i32)
                     }
                 });
 

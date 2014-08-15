@@ -67,9 +67,11 @@ fn main() {
     
     'main: loop {
         use std::io::timer;
+        use std::time::Duration;
+
         display.draw(&vb, &ib, &uniforms);
         display.end_frame();
-        timer::sleep(17);
+        timer::sleep(Duration::milliseconds(17));
 
         for event in display.recv().move_iter() {
             match event {
