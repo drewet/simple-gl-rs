@@ -47,6 +47,16 @@ pub trait GLDataTuple {
     fn get_num_elems(Option<Self>) -> gl::types::GLint;
 }
 
+impl GLDataTuple for i8 {
+    fn get_gl_type(_: Option<(i8)>) -> gl::types::GLenum { gl::BYTE }
+    fn get_num_elems(_: Option<(i8)>) -> gl::types::GLint { 1 }
+}
+
+impl GLDataTuple for u8 {
+    fn get_gl_type(_: Option<(u8)>) -> gl::types::GLenum { gl::UNSIGNED_BYTE }
+    fn get_num_elems(_: Option<(u8)>) -> gl::types::GLint { 1 }
+}
+
 impl GLDataTuple for f32 {
     fn get_gl_type(_: Option<(f32)>) -> gl::types::GLenum { gl::FLOAT }
     fn get_num_elems(_: Option<(f32)>) -> gl::types::GLint { 1 }

@@ -312,13 +312,14 @@ impl Display {
     }
 
     /// Builds a new texture.
-    pub fn build_texture<T: data_types::GLDataType>(&self, data: &[T], width: uint, height: uint, depth: uint, arraySize: uint)
+    pub fn build_texture<T: data_types::GLDataTuple>(&self, data: &[T], width: uint, height: uint, depth: uint, arraySize: uint)
         -> Texture
     {
-        // TODO: restore when image format is supported
-        /*if width * height * depth * arraySize != data.len() {
-            fail!("Texture data has different size from width*height*depth*arraySize");
-        }*/
+        let element_components = data_types::GLDataTuple::get_num_elems(None::<T>);
+
+        if width * height * depth * arraySize * (element_components as uint) != data.len() {
+            fail!("Texture data has different size from width*height*depth*arraySize*elemLen");
+        }
 
         let textureType = if height == 1 && depth == 1 {
             if arraySize == 1 { gl::TEXTURE_1D } else { gl::TEXTURE_1D_ARRAY }
@@ -328,8 +329,16 @@ impl Display {
             gl::TEXTURE_3D
         };
 
-        let dataFormat = data_types::GLDataType::get_gl_type(None::<T>);
+        let data_type = data_types::GLDataTuple::get_gl_type(None::<T>);
         let dataRaw: *const libc::c_void = unsafe { std::mem::transmute(data.as_ptr()) };
+
+        let (data_format, data_type) = match (element_components, data_type) {
+            (1, f) => (gl::RED, f),
+            (2, f) => (gl::RG, f),
+            (3, f) => (gl::RGB, f),
+            (4, f) => (gl::RGBA, f),
+            _ => fail!("unsupported texture type")
+        };
 
         let id = self.context.exec(proc(gl) {
             unsafe {
@@ -351,11 +360,11 @@ impl Display {
                 gl.TexParameteri(textureType, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
 
                 if textureType == gl::TEXTURE_3D || textureType == gl::TEXTURE_2D_ARRAY {
-                    gl.TexImage3D(textureType, 0, gl::RGBA as i32, width as i32, height as i32, if depth > 1 { depth } else { arraySize } as i32, 0, gl::RGBA as u32, dataFormat, dataRaw);
+                    gl.TexImage3D(textureType, 0, gl::RGBA as i32, width as i32, height as i32, if depth > 1 { depth } else { arraySize } as i32, 0, data_format as u32, data_type, dataRaw);
                 } else if (textureType == gl::TEXTURE_2D || textureType == gl::TEXTURE_1D_ARRAY) {
-                    gl.TexImage2D(textureType, 0, gl::RGBA as i32, width as i32, height as i32, 0, gl::RGBA as u32, dataFormat, dataRaw);
+                    gl.TexImage2D(textureType, 0, gl::RGBA as i32, width as i32, height as i32, 0, data_format as u32, data_type, dataRaw);
                 } else {
-                    gl.TexImage1D(textureType, 0, gl::RGBA as i32, width as i32, 0, gl::RGBA as u32, dataFormat, dataRaw);
+                    gl.TexImage1D(textureType, 0, gl::RGBA as i32, width as i32, 0, data_format as u32, data_type, dataRaw);
                 }
 
                 gl.GenerateMipmap(textureType);
