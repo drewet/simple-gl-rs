@@ -43,6 +43,16 @@ impl Context {
                     }
                 });
 
+                // calling glViewport
+                {
+                    match window.get_inner_size() {
+                        Some(dimensions) => 
+                            gl::Viewport(0, 0, *dimensions.ref0() as gl::types::GLsizei,
+                                *dimensions.ref1() as gl::types::GLsizei),
+                        None => ()
+                    };
+                }
+
                 // processing commands
                 loop {
                     use std::comm::{Disconnected, Empty};
