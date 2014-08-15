@@ -124,8 +124,8 @@ pub struct ProgramUniforms {
 pub struct VertexBuffer {
     display: Arc<context::Context>,
     id: gl::types::GLuint,
-    elements_size: gl::types::GLsizei,
-    bindings: HashMap<String, (gl::types::GLenum, gl::types::GLint, gl::types::GLsizei)>
+    elements_size: uint,
+    bindings: VertexBindings,
 }
 
 pub struct IndexBuffer {
@@ -138,7 +138,7 @@ pub struct IndexBuffer {
 
 /// For each binding, the data type, number of elements, and offset.
 /// Includes the total size.
-pub type VertexBindings = (HashMap<String, (gl::types::GLenum, gl::types::GLint, gl::types::GLsizei)>, gl::types::GLsizei);
+pub type VertexBindings = HashMap<String, (gl::types::GLenum, gl::types::GLint, uint)>;
 
 /// Trait for structures that represent a vertex.
 pub trait VertexFormat: Copy {
@@ -178,7 +178,7 @@ impl Display {
     {
         let bindings = VertexFormat::build_bindings(None::<T>);
 
-        let elements_size = bindings.ref1().clone();
+        let elements_size = { use std::mem; mem::size_of::<T>() };
         let buffer_size = data.len() * elements_size as uint;
 
         let id = self.context.exec(proc() {
@@ -195,7 +195,7 @@ impl Display {
             display: self.context.clone(),
             id: id,
             elements_size: elements_size,
-            bindings: bindings.val0()
+            bindings: bindings
         }
     }
 
@@ -218,7 +218,7 @@ impl Display {
             display: self.context.clone(),
             id: id,
             elementsCount: data.len(),
-            dataType: data[0].get_gl_type(),
+            dataType: data_types::GLDataType::get_gl_type(None::<T>),
             primitives: prim.get_gl_enum()
         }
     }
@@ -279,7 +279,7 @@ impl Display {
             gl::TEXTURE_3D
         };
 
-        let dataFormat = data[0].get_gl_type();
+        let dataFormat = data_types::GLDataType::get_gl_type(None::<T>);
         let dataRaw: *const libc::c_void = unsafe { std::mem::transmute(data.as_ptr()) };
 
         let id = self.context.exec(proc() {
@@ -545,7 +545,7 @@ impl ProgramUniforms {
             None => return      // the uniform is not used, we ignore it
         };
 
-        if gltype != value.get_gl_type() {
+        if gltype != data_types::UniformValue::get_gl_type(None::<T>) {
             fail!("Type of data passed to set_value must match the type of data requested by the shader")
         }
 

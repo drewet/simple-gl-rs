@@ -63,26 +63,27 @@ fn body(ecx: &mut base::ExtCtxt, span: codemap::Span,
                     let ident_str = ident_str.get();
 
                     quote_expr!(ecx, {
-                        let elem: $elem_type = unsafe { use std::mem; mem::uninitialized() };
+                        let elem: $elem_type = unsafe { mem::uninitialized() };
 
                         bindings.insert($ident_str.to_string(), (
-                            elem.get_gl_type(),
-                            elem.get_num_elems(),
+                            GLDataTuple::get_gl_type(None::<$elem_type>),
+                            GLDataTuple::get_num_elems(None::<$elem_type>),
                             offset_sum
                         ));
 
-                        offset_sum += elem.get_total_size();
+                        offset_sum += mem::size_of::<$elem_type>();
                     })
 
                 }).collect::<Vec<Gc<ast::Expr>>>();
 
             quote_expr!(ecx, {
                 use simple_gl::GLDataTuple;
+                use std::mem;
 
                 let mut bindings = { use std::collections::HashMap; HashMap::new() };
                 let mut offset_sum = 0;
                 $content;
-                (bindings, offset_sum)
+                bindings
             })
         },
 
