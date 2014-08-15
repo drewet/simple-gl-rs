@@ -1,0 +1,9 @@
+[package]
+name = "simple_gl_macros"
+version = "0.0.1"
+authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>"]
+
+[[lib]]
+name = "simple_gl_macros"
+path = "src/lib.rs"
+plugin = true

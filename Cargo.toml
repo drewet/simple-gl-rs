@@ -1,0 +1,16 @@
+[package]
+name = "simple_gl"
+version = "0.0.1"
+authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>"]
+
+[dependencies.gl]
+git = "http://github.com/bjz/gl-rs"
+
+[dependencies.gl_init]
+git = "http://github.com/tomaka/gl-init-rs"
+
+[dependencies.simple_gl_macros]
+path = "macros"
+
+[dev-dependencies.image]
+git = "https://github.com/PistonDevelopers/rust-image"
