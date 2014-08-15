@@ -72,11 +72,6 @@ impl Context {
                     if tx_events.send_opt(event.clone()).is_err() {
                         break 'main;
                     }
-
-                    match event {
-                        gl_init::Closed => break 'main,
-                        _ => ()
-                    }
                 }
 
                 // finding time to next loop

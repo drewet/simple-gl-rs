@@ -65,10 +65,17 @@ fn main() {
         [0.0, 0.0, 0.0, 1.0f32]
     ]);
     
-    loop {
+    'main: loop {
         use std::io::timer;
         display.draw(&vb, &ib, &uniforms);
         display.end_frame();
         timer::sleep(17);
+
+        for event in display.recv().move_iter() {
+            match event {
+                gl_init::Closed => break 'main,
+                _ => ()
+            }
+        }
     }
 }
