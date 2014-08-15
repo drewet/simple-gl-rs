@@ -7,7 +7,7 @@ use time;
 
 enum Message {
     EndFrame,
-    Execute(proc():Send),
+    Execute(proc(&gl::Gl):Send),
 }
 
 pub struct Context {
@@ -28,7 +28,7 @@ impl Context {
         TaskBuilder::new().native().spawn(proc() {
             unsafe { window.make_current(); }
 
-            gl::load_with(|symbol| window.get_proc_address(symbol));
+            let gl = gl::Gl::load_with(|symbol| window.get_proc_address(symbol));
 
             let mut next_loop = time::precise_time_ns();
             'main: loop {
@@ -47,7 +47,7 @@ impl Context {
                 {
                     match window.get_inner_size() {
                         Some(dimensions) => 
-                            gl::Viewport(0, 0, *dimensions.ref0() as gl::types::GLsizei,
+                            gl.Viewport(0, 0, *dimensions.ref0() as gl::types::GLsizei,
                                 *dimensions.ref1() as gl::types::GLsizei),
                         None => ()
                     };
@@ -59,7 +59,7 @@ impl Context {
 
                     match rx_commands.recv_opt() {
                         Ok(EndFrame) => break,
-                        Ok(Execute(cmd)) => cmd(),
+                        Ok(Execute(cmd)) => cmd(&gl),
                         Err(_) => break 'main
                     }
                 }
@@ -82,10 +82,10 @@ impl Context {
         context
     }
 
-    pub fn exec<T:Send>(&self, f: proc(): Send -> T) -> Future<T> {
+    pub fn exec<T:Send>(&self, f: proc(&gl::Gl): Send -> T) -> Future<T> {
         let (tx, rx) = channel();
-        self.commands.lock().send(Execute(proc() {
-            let _ = tx.send_opt(f());
+        self.commands.lock().send(Execute(proc(gl) {
+            let _ = tx.send_opt(f(gl));
         }));
         Future::from_receiver(rx)
     }
