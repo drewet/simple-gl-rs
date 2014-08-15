@@ -1,5 +1,4 @@
 use gl;
-use std;
 
 pub trait GLDataType: Num + Copy {
     fn get_gl_type(Option<Self>) -> gl::types::GLenum;

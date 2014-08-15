@@ -57,8 +57,6 @@ impl Context {
 
                 // processing commands
                 loop {
-                    use std::comm::{Disconnected, Empty};
-
                     match rx_commands.recv_opt() {
                         Ok(EndFrame) => break,
                         Ok(Execute(cmd)) => cmd(&gl),

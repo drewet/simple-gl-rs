@@ -117,6 +117,7 @@ pub struct Program {
 
 struct ProgramImpl {
     display: Arc<context::Context>,
+    #[allow(dead_code)]
     shaders: Vec<Arc<ShaderImpl>>,
     id: gl::types::GLuint,
     uniforms: Arc<HashMap<String, (gl::types::GLint, gl::types::GLenum, gl::types::GLint)>>     // location, type and size of each uniform, ordered by name
@@ -361,7 +362,7 @@ impl Display {
 
                 if textureType == gl::TEXTURE_3D || textureType == gl::TEXTURE_2D_ARRAY {
                     gl.TexImage3D(textureType, 0, gl::RGBA as i32, width as i32, height as i32, if depth > 1 { depth } else { arraySize } as i32, 0, data_format as u32, data_type, dataRaw);
-                } else if (textureType == gl::TEXTURE_2D || textureType == gl::TEXTURE_1D_ARRAY) {
+                } else if textureType == gl::TEXTURE_2D || textureType == gl::TEXTURE_1D_ARRAY {
                     gl.TexImage2D(textureType, 0, gl::RGBA as i32, width as i32, height as i32, 0, data_format as u32, data_type, dataRaw);
                 } else {
                     gl.TexImage1D(textureType, 0, gl::RGBA as i32, width as i32, 0, data_format as u32, data_type, dataRaw);
@@ -431,7 +432,7 @@ impl Display {
                 gl.LinkProgram(id);
                 {   let mut linkSuccess: gl::types::GLint = std::mem::uninitialized();
                     gl.GetProgramiv(id, gl::LINK_STATUS, &mut linkSuccess);
-                    if (linkSuccess == 0) {
+                    if linkSuccess == 0 {
                         match gl.GetError() {
                             gl::NO_ERROR => (),
                             gl::INVALID_VALUE => return Err(format!("glLinkProgram triggered GL_INVALID_VALUE")),
@@ -596,6 +597,10 @@ impl Texture {
     pub fn get_depth(&self) -> uint {
         self.texture.depth
     }
+
+    pub fn get_array_size(&self) -> uint {
+        self.texture.arraySize
+    }
 }
 
 impl Program {
@@ -621,7 +626,7 @@ impl ProgramUniforms {
     /// However the function will fail if the type of data doesn't match the type required
     ///  by the shader source code.
     pub fn set_value<T: data_types::UniformValue>(&mut self, uniform_name: &str, value: T) {
-        let &(location, gltype, typesize) = match self.uniforms.find(&uniform_name.to_string()) {
+        let &(location, gltype, _) = match self.uniforms.find(&uniform_name.to_string()) {
             Some(a) => a,
             None => return      // the uniform is not used, we ignore it
         };
@@ -633,7 +638,7 @@ impl ProgramUniforms {
         let mut data: Vec<char> = Vec::with_capacity(std::mem::size_of_val(&value));
         unsafe { data.set_len(std::mem::size_of_val(&value)); }
 
-        let mut dataInside = data.as_mut_ptr() as *mut T;
+        let dataInside = data.as_mut_ptr() as *mut T;
         unsafe { (*dataInside) = value; }
 
         self.values.insert(location.clone(), (gltype, data));
@@ -645,13 +650,28 @@ impl ProgramUniforms {
     /// Nothing happens if the program doesn't contain a uniform with this name.
     /// However the function will fail if you call this function for a non-texture uniform.
     pub fn set_texture(&mut self, uniform_name: &str, texture: &Texture) {
-        let &(location, gltype, typesize) = match self.uniforms.find(&uniform_name.to_string()) {
+        let &(location, gltype, _) = match self.uniforms.find(&uniform_name.to_string()) {
             Some(a) => a,
             None => return      // the uniform is not used, we ignore it
         };
 
         match gltype {
-            gl::SAMPLER_1D | gl::SAMPLER_2D | gl::SAMPLER_3D | gl::SAMPLER_CUBE | gl::SAMPLER_1D_SHADOW | gl::SAMPLER_2D_SHADOW | gl::SAMPLER_1D_ARRAY | gl::SAMPLER_2D_ARRAY | gl::SAMPLER_1D_ARRAY_SHADOW | gl::SAMPLER_2D_ARRAY_SHADOW | gl::SAMPLER_2D_MULTISAMPLE | gl::SAMPLER_2D_MULTISAMPLE_ARRAY | gl::SAMPLER_CUBE_SHADOW | gl::SAMPLER_BUFFER | gl::SAMPLER_2D_RECT | gl::SAMPLER_2D_RECT_SHADOW | gl::INT_SAMPLER_1D | gl::INT_SAMPLER_2D | gl::INT_SAMPLER_3D | gl::INT_SAMPLER_CUBE | gl::INT_SAMPLER_1D_ARRAY | gl::INT_SAMPLER_2D_ARRAY | gl::INT_SAMPLER_2D_MULTISAMPLE | gl::INT_SAMPLER_2D_MULTISAMPLE_ARRAY | gl::INT_SAMPLER_BUFFER | gl::INT_SAMPLER_2D_RECT | gl::UNSIGNED_INT_SAMPLER_1D | gl::UNSIGNED_INT_SAMPLER_2D | gl::UNSIGNED_INT_SAMPLER_3D | gl::UNSIGNED_INT_SAMPLER_CUBE | gl::UNSIGNED_INT_SAMPLER_1D_ARRAY | gl::UNSIGNED_INT_SAMPLER_2D_ARRAY | gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE | gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY | gl::UNSIGNED_INT_SAMPLER_BUFFER | gl::UNSIGNED_INT_SAMPLER_2D_RECT => (),
+            gl::SAMPLER_1D | gl::SAMPLER_2D | gl::SAMPLER_3D | gl::SAMPLER_CUBE |
+            gl::SAMPLER_1D_SHADOW | gl::SAMPLER_2D_SHADOW | gl::SAMPLER_1D_ARRAY |
+            gl::SAMPLER_2D_ARRAY | gl::SAMPLER_1D_ARRAY_SHADOW | gl::SAMPLER_2D_ARRAY_SHADOW |
+            gl::SAMPLER_2D_MULTISAMPLE | gl::SAMPLER_2D_MULTISAMPLE_ARRAY |
+            gl::SAMPLER_CUBE_SHADOW | gl::SAMPLER_BUFFER | gl::SAMPLER_2D_RECT |
+            gl::SAMPLER_2D_RECT_SHADOW | gl::INT_SAMPLER_1D | gl::INT_SAMPLER_2D |
+            gl::INT_SAMPLER_3D | gl::INT_SAMPLER_CUBE | gl::INT_SAMPLER_1D_ARRAY |
+            gl::INT_SAMPLER_2D_ARRAY | gl::INT_SAMPLER_2D_MULTISAMPLE |
+            gl::INT_SAMPLER_2D_MULTISAMPLE_ARRAY | gl::INT_SAMPLER_BUFFER |
+            gl::INT_SAMPLER_2D_RECT | gl::UNSIGNED_INT_SAMPLER_1D | gl::UNSIGNED_INT_SAMPLER_2D |
+            gl::UNSIGNED_INT_SAMPLER_3D | gl::UNSIGNED_INT_SAMPLER_CUBE |
+            gl::UNSIGNED_INT_SAMPLER_1D_ARRAY | gl::UNSIGNED_INT_SAMPLER_2D_ARRAY |
+            gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE |
+            gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY | gl::UNSIGNED_INT_SAMPLER_BUFFER |
+            gl::UNSIGNED_INT_SAMPLER_2D_RECT
+                => (),
             _ => fail!("Trying to bind a texture to a non-texture uniform")
         };
 
@@ -690,7 +710,7 @@ impl Drop for ShaderImpl {
     fn drop(&mut self) {
         let id = self.id.clone();
         self.display.exec(proc(gl) {
-            unsafe { gl.DeleteShader(id); }
+            gl.DeleteShader(id);
         });
     }
 }

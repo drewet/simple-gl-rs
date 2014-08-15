@@ -8,7 +8,9 @@ extern crate simple_gl;
 
 #[vertex_format]
 struct Vertex {
+    #[allow(dead_code)]
     iPosition: [f32, ..2],
+    #[allow(dead_code)]
     iTexCoords: [f32, ..2],
 }
 

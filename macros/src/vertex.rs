@@ -42,7 +42,13 @@ pub fn expand(ecx: &mut base::ExtCtxt, span: codemap::Span,
                         vec!["simple_gl", "VertexBindings"]
                     ),
                 ),
-                attributes: Vec::new(),
+                attributes: vec![
+                    ecx.attribute(span.clone(), ecx.meta_list(span.clone(),
+                        token::InternedString::new("allow"),
+                        vec![ecx.meta_word(span.clone(),
+                                token::InternedString::new("dead_assignment"))]
+                    ))
+                ],
                 combine_substructure: generic::combine_substructure(body),
             },
         ],
@@ -63,8 +69,6 @@ fn body(ecx: &mut base::ExtCtxt, span: codemap::Span,
                     let ident_str = ident_str.get();
 
                     quote_expr!(ecx, {
-                        let elem: $elem_type = unsafe { mem::uninitialized() };
-
                         bindings.insert($ident_str.to_string(), (
                             GLDataTuple::get_gl_type(None::<$elem_type>),
                             GLDataTuple::get_num_elems(None::<$elem_type>),
