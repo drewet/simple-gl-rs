@@ -41,6 +41,7 @@ impl GLDataType for f64 {
     }
 }
 
+#[doc(hidden)]
 pub trait GLDataTuple {
     fn get_gl_type(Option<Self>) -> gl::types::GLenum;
     fn get_num_elems(Option<Self>) -> gl::types::GLint;

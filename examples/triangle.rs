@@ -73,7 +73,7 @@ fn main() {
         display.end_frame();
         timer::sleep(Duration::milliseconds(17));
 
-        for event in display.recv().move_iter() {
+        for event in display.poll_events().move_iter() {
             match event {
                 gl_init::Closed => break 'main,
                 _ => ()

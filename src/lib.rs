@@ -1,4 +1,5 @@
 #![feature(phase)]
+#![unstable]
 
 #[phase(plugin)]
 extern crate gl_generator;
@@ -8,6 +9,7 @@ extern crate libc;
 extern crate native;
 extern crate time;
 
+#[doc(hidden)]
 pub use data_types::GLDataTuple;
 
 use std::collections::HashMap;
@@ -146,14 +148,16 @@ pub struct IndexBuffer {
 
 /// For each binding, the data type, number of elements, and offset.
 /// Includes the total size.
+#[doc(hidden)]
 pub type VertexBindings = HashMap<String, (gl::types::GLenum, gl::types::GLint, uint)>;
 
 /// Trait for structures that represent a vertex.
+#[doc(hidden)]
 pub trait VertexFormat: Copy {
     fn build_bindings(Option<Self>) -> VertexBindings;
 }
 
-/// Objects that can builds a `Display` object.
+/// Objects that can build a `Display` object.
 pub trait DisplayBuild {
     fn build_simple_gl(self) -> Result<Display, ()>;
 }
@@ -167,7 +171,8 @@ impl DisplayBuild for gl_init::WindowBuilder {
 }
 
 impl Display {
-    pub fn recv(&self) -> Vec<gl_init::Event> {
+    /// Reads all events received by the window.
+    pub fn poll_events(&self) -> Vec<gl_init::Event> {
         self.context.recv()
     }
 
@@ -181,6 +186,30 @@ impl Display {
         });
     }
 
+    /// Builds a new vertex buffer.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # #![feature(phase)]
+    /// # #[phase(plugin)]
+    /// # extern crate simple_gl_macros;
+    /// # extern crate simple_gl;
+    /// # fn main() {
+    /// #[vertex_format]
+    /// struct Vertex {
+    ///     position: [f32, ..3],
+    ///     texcoords: [f32, ..2],
+    /// }
+    ///
+    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+    /// let vertex_buffer = display.build_vertex_buffer(vec![
+    ///     Vertex { position: [0.0,  0.0, 0.0], texcoords: [0.0, 1.0] },
+    ///     Vertex { position: [5.0, -3.0, 2.0], texcoords: [1.0, 0.0] },
+    /// ]);
+    /// # }
+    /// ```
+    /// 
     pub fn build_vertex_buffer<T: VertexFormat + 'static + Send>(&self, data: Vec<T>)
         -> VertexBuffer
     {
@@ -207,6 +236,16 @@ impl Display {
         }
     }
 
+    /// Builds a new index buffer.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+    /// let index_buffer = display.build_index_buffer(simple_gl::TrianglesList,
+    ///     &[0u8, 1, 2, 1, 3, 4, 2, 4, 3]);
+    /// ```
+    /// 
     pub fn build_index_buffer<T: data_types::GLDataType>(&self, prim: PrimitiveType, data: &[T]) -> IndexBuffer {
         let elementsSize = std::mem::size_of_val(&data[0]);
         let dataSize = data.len() * elementsSize;
@@ -231,6 +270,7 @@ impl Display {
         }
     }
 
+    /// Builds an individual shader.
     fn build_shader(&self, stype: gl::types::GLenum, sourceCode: &str)
         -> Result<Shader, String>
     {
@@ -271,6 +311,7 @@ impl Display {
         })
     }
 
+    /// Builds a new texture.
     pub fn build_texture<T: data_types::GLDataType>(&self, data: &[T], width: uint, height: uint, depth: uint, arraySize: uint)
         -> Texture
     {
@@ -337,6 +378,22 @@ impl Display {
     }
 
     /// Builds a new program.
+    ///
+    /// A program is a group of shaders linked together.
+    ///
+    /// # Parameters
+    ///
+    /// - `vertex_shader`: Source code of the vertex shader.
+    /// - `fragment_shader`: Source code of the fragment shader.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+    /// # let vertex_source = ""; let fragment_source = "";
+    /// let program = display.build_program(vertex_source, fragment_source);
+    /// ```
+    /// 
     pub fn build_program(&self, vertex_shader: &str, fragment_shader: &str)
         -> Result<Program, String>
     {
@@ -533,9 +590,10 @@ impl Texture {
 }
 
 impl Program {
-    pub fn build_uniforms(&self)
-        -> ProgramUniforms
-    {
+    /// Creates a new `ProgramUniforms` object.
+    ///
+    /// A `ProgramUniforms` object is a link between a program and its uniforms values.
+    pub fn build_uniforms(&self) -> ProgramUniforms {
         ProgramUniforms {
             display: self.program.display.clone(),
             program: self.program.clone(),
@@ -547,8 +605,14 @@ impl Program {
 }
 
 impl ProgramUniforms {
-    pub fn set_value<T: data_types::UniformValue>(&mut self, uniformName: &str, value: T) {
-        let &(location, gltype, typesize) = match self.uniforms.find(&uniformName.to_string()) {
+    /// Modifies the value of a uniform of the program.
+    ///
+    /// `uniform_name` must be the name of a uniform in the program.
+    /// Nothing happens if the program doesn't contain a uniform with this name.
+    /// However the function will fail if the type of data doesn't match the type required
+    ///  by the shader source code.
+    pub fn set_value<T: data_types::UniformValue>(&mut self, uniform_name: &str, value: T) {
+        let &(location, gltype, typesize) = match self.uniforms.find(&uniform_name.to_string()) {
             Some(a) => a,
             None => return      // the uniform is not used, we ignore it
         };
@@ -566,8 +630,13 @@ impl ProgramUniforms {
         self.values.insert(location.clone(), (gltype, data));
     }
 
-    pub fn set_texture(&mut self, uniformName: &str, texture: &Texture) {
-        let &(location, gltype, typesize) = match self.uniforms.find(&uniformName.to_string()) {
+    /// Modifies the value of a texture uniform of the program.
+    ///
+    /// `uniform_name` must be the name of a uniform in the program.
+    /// Nothing happens if the program doesn't contain a uniform with this name.
+    /// However the function will fail if you call this function for a non-texture uniform.
+    pub fn set_texture(&mut self, uniform_name: &str, texture: &Texture) {
+        let &(location, gltype, typesize) = match self.uniforms.find(&uniform_name.to_string()) {
             Some(a) => a,
             None => return      // the uniform is not used, we ignore it
         };
