@@ -13,6 +13,7 @@ extern crate time;
 pub use data_types::GLDataTuple;
 
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 
 mod context;
@@ -92,6 +93,13 @@ pub struct Texture {
     texture: Arc<TextureImpl>
 }
 
+impl fmt::Show for Texture {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+        (format!("Texture #{} (dimensions: {}x{}x{})", self.texture.id,
+            self.texture.width, self.texture.height, self.texture.depth)).fmt(formatter)
+    }
+}
+
 struct TextureImpl {
     display: Arc<context::Context>,
     id: gl::types::GLuint,
@@ -102,10 +110,6 @@ struct TextureImpl {
     arraySize: uint
 }
 
-pub struct Shader {
-    shader: Arc<ShaderImpl>
-}
-
 struct ShaderImpl {
     display: Arc<context::Context>,
     id: gl::types::GLuint,
@@ -113,6 +117,12 @@ struct ShaderImpl {
 
 pub struct Program {
     program: Arc<ProgramImpl>
+}
+
+impl fmt::Show for Program {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+        (format!("Program #{}", self.program.id)).fmt(formatter)
+    }
 }
 
 struct ProgramImpl {
@@ -139,12 +149,24 @@ pub struct VertexBuffer {
     bindings: VertexBindings,
 }
 
+impl fmt::Show for VertexBuffer {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+        (format!("VertexBuffer #{}", self.id)).fmt(formatter)
+    }
+}
+
 pub struct IndexBuffer {
     display: Arc<context::Context>,
     id: gl::types::GLuint,
     elementsCount: uint,
     dataType: gl::types::GLenum,
     primitives: gl::types::GLenum
+}
+
+impl fmt::Show for IndexBuffer {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+        (format!("IndexBuffer #{} (elements: {})", self.id, self.elementsCount)).fmt(formatter)
+    }
 }
 
 /// For each binding, the data type, number of elements, and offset.
@@ -273,7 +295,7 @@ impl Display {
 
     /// Builds an individual shader.
     fn build_shader(&self, stype: gl::types::GLenum, sourceCode: &str)
-        -> Result<Shader, String>
+        -> Result<Arc<ShaderImpl>, String>
     {
         let srcCode = sourceCode.to_string();
 
@@ -303,12 +325,10 @@ impl Display {
         }).get();
 
         idResult.map(|id| {
-            Shader {
-                shader: Arc::new(ShaderImpl {
-                    display: self.context.clone(),
-                    id: id
-                })
-            }
+            Arc::new(ShaderImpl {
+                display: self.context.clone(),
+                id: id
+            })
         })
     }
 
@@ -408,8 +428,8 @@ impl Display {
         -> Result<Program, String>
     {
         let mut shadersStore = Vec::new();
-        shadersStore.push(try!(self.build_shader(gl::VERTEX_SHADER, vertex_shader)).shader);
-        shadersStore.push(try!(self.build_shader(gl::FRAGMENT_SHADER, fragment_shader)).shader);
+        shadersStore.push(try!(self.build_shader(gl::VERTEX_SHADER, vertex_shader)));
+        shadersStore.push(try!(self.build_shader(gl::FRAGMENT_SHADER, fragment_shader)));
 
         let mut shadersIDs = Vec::new();
         for sh in shadersStore.iter() {
