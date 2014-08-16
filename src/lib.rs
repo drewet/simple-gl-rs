@@ -338,7 +338,7 @@ impl Display {
     {
         let element_components = data_types::GLDataTuple::get_num_elems(None::<T>);
 
-        if width * height * depth * arraySize * (element_components as uint) != data.len() {
+        if width * height * depth * arraySize != data.len() {
             fail!("Texture data has different size from width*height*depth*arraySize*elemLen");
         }
 

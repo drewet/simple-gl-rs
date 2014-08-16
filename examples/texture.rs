@@ -75,6 +75,7 @@ fn main() {
         let data = image.raw_pixels();
         let data = data.as_slice();
         let data: &[(u8, u8, u8)] = unsafe { std::mem::transmute(data) };
+        let data = data.slice_to(data.len() / 3);
 
         display.build_texture(data, dimensions.val0() as uint,
             dimensions.val1() as uint, 1, 1)
