@@ -26,7 +26,9 @@ mod gl {
 pub enum PrimitiveType {
     PointsList,
     LinesList,
+    LinesListAdjacency,
     LineStrip,
+    LineStripAdjacency,
     TrianglesList,
     TrianglesListAdjacency,
     TriangleStrip,
@@ -415,20 +417,25 @@ impl Display {
     ///
     /// - `vertex_shader`: Source code of the vertex shader.
     /// - `fragment_shader`: Source code of the fragment shader.
+    /// - `geometry_shader`: Source code of the geometry shader.
     ///
     /// # Example
     ///
     /// ```no_run
     /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-    /// # let vertex_source = ""; let fragment_source = "";
-    /// let program = display.build_program(vertex_source, fragment_source);
+    /// # let vertex_source = ""; let fragment_source = ""; let geometry_source = "";
+    /// let program = display.build_program(vertex_source, fragment_source, Some(geometry_source));
     /// ```
     /// 
-    pub fn build_program(&self, vertex_shader: &str, fragment_shader: &str)
-        -> Result<Program, String>
+    pub fn build_program(&self, vertex_shader: &str, fragment_shader: &str,
+                         geometry_shader: Option<&str>) -> Result<Program, String>
     {
         let mut shadersStore = Vec::new();
         shadersStore.push(try!(self.build_shader(gl::VERTEX_SHADER, vertex_shader)));
+        match geometry_shader {
+            Some(gs) => shadersStore.push(try!(self.build_shader(gl::VERTEX_SHADER, gs))),
+            None => ()
+        }
         shadersStore.push(try!(self.build_shader(gl::FRAGMENT_SHADER, fragment_shader)));
 
         let mut shadersIDs = Vec::new();
@@ -595,7 +602,9 @@ impl PrimitiveType {
         match *self {
             PointsList => gl::POINTS,
             LinesList => gl::LINES,
+            LinesListAdjacency => gl::LINES_ADJACENCY,
             LineStrip => gl::LINE_STRIP,
+            LineStripAdjacency => gl::LINE_STRIP_ADJACENCY,
             TrianglesList => gl::TRIANGLES,
             TrianglesListAdjacency => gl::TRIANGLES_ADJACENCY,
             TriangleStrip => gl::TRIANGLE_STRIP,
