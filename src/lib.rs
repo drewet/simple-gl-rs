@@ -434,7 +434,7 @@ impl Display {
         let mut shadersStore = Vec::new();
         shadersStore.push(try!(self.build_shader(gl::VERTEX_SHADER, vertex_shader)));
         match geometry_shader {
-            Some(gs) => shadersStore.push(try!(self.build_shader(gl::VERTEX_SHADER, gs))),
+            Some(gs) => shadersStore.push(try!(self.build_shader(gl::GEOMETRY_SHADER, gs))),
             None => ()
         }
         shadersStore.push(try!(self.build_shader(gl::FRAGMENT_SHADER, fragment_shader)));
