@@ -317,6 +317,7 @@ impl Display {
 
                     let mut errorLog: Vec<u8> = Vec::with_capacity(errorLogSize as uint);
                     gl.GetShaderInfoLog(id, errorLogSize, &mut errorLogSize, errorLog.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
+                    errorLog.set_len(errorLogSize as uint);
 
                     let msg = String::from_utf8(errorLog).unwrap();
                     return Err(msg)
