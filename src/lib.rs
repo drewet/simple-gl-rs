@@ -1,6 +1,148 @@
 #![feature(phase)]
 #![unstable]
 
+/*!
+Easy-to-use high-level OpenGL3+ wrapper.
+
+# Initialization
+
+This library defines the `DisplayBuild` trait which is curently implemented only on
+`gl_init::WindowBuilder`.
+
+Initialization is done by creating a `WindowBuilder` and calling `build_simple_gl`.
+
+```no_run
+extern crate gl_init;
+extern crate simple_gl;
+
+fn main() {
+    use simple_gl::DisplayBuild;
+
+    let display = gl_init::WindowBuilder::new()
+        .with_dimensions(1024, 768)
+        .with_title("Hello world".to_string())
+        .build_simple_gl().unwrap();
+}
+```
+
+The `display` object is the most important object of this library.
+
+The window where you are drawing on will produce events. They can be received by calling
+`display.poll_events()`.
+
+# Drawing
+
+Drawing something requires three elements:
+
+ - A vertex buffer, which contains the vertices of the shape that you wish to draw.
+ - An index buffer, which contains the shapes which connect the vertices.
+ - A program that the GPU will execute.
+
+## Vertex buffer
+
+To create a vertex buffer, you must create a struct and add the `#[vertex_format]` attribute to
+it. Then simply call `build_vertex_buffer` with a `Vec` of this type.
+
+```no_run
+# #![feature(phase)]
+# #[phase(plugin)]
+# extern crate simple_gl_macros;
+# extern crate simple_gl;
+# fn main() {
+#[vertex_format]
+struct Vertex {
+    iPosition: [f32, ..2],
+    iTexCoords: [f32, ..2],
+}
+
+# let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+let vertex_buffer = display.build_vertex_buffer(vec![
+    Vertex { iPosition: [-1.0, -1.0], iTexCoords: [0.0, 1.0] },
+    Vertex { iPosition: [-1.0,  1.0], iTexCoords: [0.0, 0.0] },
+    Vertex { iPosition: [ 1.0,  1.0], iTexCoords: [1.0, 0.0] },
+    Vertex { iPosition: [ 1.0, -1.0], iTexCoords: [1.0, 1.0] }
+]);
+# }
+```
+
+## Index buffer
+
+Creating an index buffer is done by calling `build_index_buffer` with an array containing
+the indices from the vertex buffer.
+
+```no_run
+# let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+let index_buffer = display.build_index_buffer(simple_gl::TrianglesList,
+    &[0u8, 1, 2, 0, 2, 3]);
+```
+
+## Program
+
+```no_run
+static VERTEX_SRC: &'static str = "
+    #version 110
+
+    uniform mat4 uMatrix;
+
+    attribute vec2 iPosition;
+    attribute vec2 iTexCoords;
+
+    varying vec2 vTexCoords;
+
+    void main() {
+        gl_Position = vec4(iPosition, 0.0, 1.0) * uMatrix;
+        vTexCoords = iTexCoords;
+    }
+";
+
+static FRAGMENT_SRC: &'static str = "
+    #version 110
+    varying vec2 vTexCoords;
+
+    void main() {
+        gl_FragColor = vec4(vTexCoords.x, vTexCoords.y, 0.0, 1.0);
+    }
+";
+
+# let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+let program = display.build_program(VERTEX_SRC, FRAGMENT_SRC, None).unwrap();
+```
+
+The `attribute`s or `in` variables in the vertex shader must match the names of the elements
+of the `#[vertex_format]` structure.
+
+The `Result` returned by `build_program` will report any compilation or linking error.
+
+The last step is to call `build_uniforms` on the program. Doing so does not consume the program,
+so you can call `build_uniforms` multiple times on the same program.
+
+```no_run
+# let program: simple_gl::Program = unsafe { std::mem::uninitialized() };
+let mut uniforms = program.build_uniforms();
+
+uniforms.set_value("uMatrix", [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0f32]
+]);
+```
+
+## Drawing
+
+Draw by calling `display.draw`. Once you are done drawing, call `display.end_frame()`.
+
+```no_run
+# let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+# let vertex_buffer: simple_gl::VertexBuffer = unsafe { std::mem::uninitialized() };
+# let index_buffer: simple_gl::IndexBuffer = unsafe { std::mem::uninitialized() };
+# let uniforms: simple_gl::ProgramUniforms = unsafe { std::mem::uninitialized() };
+display.draw(&vertex_buffer, &index_buffer, &uniforms);
+display.end_frame();
+```
+
+*/
+
 #[phase(plugin)]
 extern crate gl_generator;
 

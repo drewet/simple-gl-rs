@@ -11,6 +11,8 @@ git = "http://github.com/tomaka/simple-gl-rs"
 
 ## [Documentation](http://rust-ci.org/tomaka/simple-gl-rs/doc/simple_gl/index.html)
 
+Everything is explained in the documentation.
+
 ## Example
 
 ```rust
