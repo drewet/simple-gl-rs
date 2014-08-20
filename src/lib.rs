@@ -182,6 +182,23 @@ pub enum PrimitiveType {
     TriangleFan
 }
 
+impl PrimitiveType {
+    fn get_gl_enum(&self) -> gl::types::GLenum {
+        match *self {
+            PointsList => gl::POINTS,
+            LinesList => gl::LINES,
+            LinesListAdjacency => gl::LINES_ADJACENCY,
+            LineStrip => gl::LINE_STRIP,
+            LineStripAdjacency => gl::LINE_STRIP_ADJACENCY,
+            TrianglesList => gl::TRIANGLES,
+            TrianglesListAdjacency => gl::TRIANGLES_ADJACENCY,
+            TriangleStrip => gl::TRIANGLE_STRIP,
+            TriangleStripAdjacency => gl::TRIANGLE_STRIP_ADJACENCY,
+            TriangleFan => gl::TRIANGLE_FAN
+        }
+    }
+}
+
 /// Function that the GPU will use for blending.
 pub enum BlendingFunction {
     /// Always replace the destination pixel by the source.
@@ -271,6 +288,28 @@ pub struct Texture {
     texture: Arc<TextureImpl>
 }
 
+impl Texture {
+    /// Returns the width of the texture.
+    pub fn get_width(&self) -> uint {
+        self.texture.width
+    }
+
+    /// Returns the height of the texture, or 1 if the texture is a 1D texture.
+    pub fn get_height(&self) -> uint {
+        self.texture.height
+    }
+
+    /// Returns the depth of the texture, or 1 if the texture is a 1D or 2D texture.
+    pub fn get_depth(&self) -> uint {
+        self.texture.depth
+    }
+
+    /// Returns the number of elements in the texture array, or 1 if the texture is not an array.
+    pub fn get_array_size(&self) -> uint {
+        self.texture.arraySize
+    }
+}
+
 impl fmt::Show for Texture {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
         (format!("Texture #{} (dimensions: {}x{}x{})", self.texture.id,
@@ -288,14 +327,47 @@ struct TextureImpl {
     arraySize: uint
 }
 
+impl Drop for TextureImpl {
+    fn drop(&mut self) {
+        let id = self.id.clone();
+        self.display.exec(proc(gl) {
+            unsafe { gl.DeleteTextures(1, [ id ].as_ptr()); }
+        });
+    }
+}
+
 struct ShaderImpl {
     display: Arc<context::Context>,
     id: gl::types::GLuint,
 }
 
+impl Drop for ShaderImpl {
+    fn drop(&mut self) {
+        let id = self.id.clone();
+        self.display.exec(proc(gl) {
+            gl.DeleteShader(id);
+        });
+    }
+}
+
 /// A combinaison of shaders linked together.
 pub struct Program {
     program: Arc<ProgramImpl>
+}
+
+impl Program {
+    /// Creates a new `ProgramUniforms` object.
+    ///
+    /// A `ProgramUniforms` object is a link between a program and its uniforms values.
+    pub fn build_uniforms(&self) -> ProgramUniforms {
+        ProgramUniforms {
+            display: self.program.display.clone(),
+            program: self.program.clone(),
+            textures: HashMap::new(),
+            values: HashMap::new(),
+            uniforms: self.program.uniforms.clone()
+        }
+    }
 }
 
 impl fmt::Show for Program {
@@ -322,6 +394,67 @@ pub struct ProgramUniforms {
     uniforms: Arc<HashMap<String, (gl::types::GLint, gl::types::GLenum, gl::types::GLint)>>     // same as the program's variable
 }
 
+impl ProgramUniforms {
+    /// Modifies the value of a uniform of the program.
+    ///
+    /// `uniform_name` must be the name of a uniform in the program.
+    /// Nothing happens if the program doesn't contain a uniform with this name.
+    /// However the function will fail if the type of data doesn't match the type required
+    ///  by the shader source code.
+    pub fn set_value<T: data_types::UniformValue>(&mut self, uniform_name: &str, value: T) {
+        let &(location, gltype, _) = match self.uniforms.find(&uniform_name.to_string()) {
+            Some(a) => a,
+            None => return      // the uniform is not used, we ignore it
+        };
+
+        if gltype != data_types::UniformValue::get_gl_type(None::<T>) {
+            fail!("Type of data passed to set_value must match the type of data requested by the shader")
+        }
+
+        let mut data: Vec<char> = Vec::with_capacity(std::mem::size_of_val(&value));
+        unsafe { data.set_len(std::mem::size_of_val(&value)); }
+
+        let dataInside = data.as_mut_ptr() as *mut T;
+        unsafe { (*dataInside) = value; }
+
+        self.values.insert(location.clone(), (gltype, data));
+    }
+
+    /// Modifies the value of a texture uniform of the program.
+    ///
+    /// `uniform_name` must be the name of a uniform in the program.
+    /// Nothing happens if the program doesn't contain a uniform with this name.
+    /// However the function will fail if you call this function for a non-texture uniform.
+    pub fn set_texture(&mut self, uniform_name: &str, texture: &Texture) {
+        let &(location, gltype, _) = match self.uniforms.find(&uniform_name.to_string()) {
+            Some(a) => a,
+            None => return      // the uniform is not used, we ignore it
+        };
+
+        match gltype {
+            gl::SAMPLER_1D | gl::SAMPLER_2D | gl::SAMPLER_3D | gl::SAMPLER_CUBE |
+            gl::SAMPLER_1D_SHADOW | gl::SAMPLER_2D_SHADOW | gl::SAMPLER_1D_ARRAY |
+            gl::SAMPLER_2D_ARRAY | gl::SAMPLER_1D_ARRAY_SHADOW | gl::SAMPLER_2D_ARRAY_SHADOW |
+            gl::SAMPLER_2D_MULTISAMPLE | gl::SAMPLER_2D_MULTISAMPLE_ARRAY |
+            gl::SAMPLER_CUBE_SHADOW | gl::SAMPLER_BUFFER | gl::SAMPLER_2D_RECT |
+            gl::SAMPLER_2D_RECT_SHADOW | gl::INT_SAMPLER_1D | gl::INT_SAMPLER_2D |
+            gl::INT_SAMPLER_3D | gl::INT_SAMPLER_CUBE | gl::INT_SAMPLER_1D_ARRAY |
+            gl::INT_SAMPLER_2D_ARRAY | gl::INT_SAMPLER_2D_MULTISAMPLE |
+            gl::INT_SAMPLER_2D_MULTISAMPLE_ARRAY | gl::INT_SAMPLER_BUFFER |
+            gl::INT_SAMPLER_2D_RECT | gl::UNSIGNED_INT_SAMPLER_1D | gl::UNSIGNED_INT_SAMPLER_2D |
+            gl::UNSIGNED_INT_SAMPLER_3D | gl::UNSIGNED_INT_SAMPLER_CUBE |
+            gl::UNSIGNED_INT_SAMPLER_1D_ARRAY | gl::UNSIGNED_INT_SAMPLER_2D_ARRAY |
+            gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE |
+            gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY | gl::UNSIGNED_INT_SAMPLER_BUFFER |
+            gl::UNSIGNED_INT_SAMPLER_2D_RECT
+                => (),
+            _ => fail!("Trying to bind a texture to a non-texture uniform")
+        };
+
+        self.textures.insert(location.clone(), texture.texture.clone());
+    }
+}
+
 /// A list of verices loaded in the graphics card's memory.
 pub struct VertexBuffer {
     display: Arc<context::Context>,
@@ -333,6 +466,15 @@ pub struct VertexBuffer {
 impl fmt::Show for VertexBuffer {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
         (format!("VertexBuffer #{}", self.id)).fmt(formatter)
+    }
+}
+
+impl Drop for VertexBuffer {
+    fn drop(&mut self) {
+        let id = self.id.clone();
+        self.display.exec(proc(gl) {
+            unsafe { gl.DeleteBuffers(1, [ id ].as_ptr()); }
+        });
     }
 }
 
@@ -348,6 +490,15 @@ pub struct IndexBuffer {
 impl fmt::Show for IndexBuffer {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
         (format!("IndexBuffer #{} (elements: {})", self.id, self.elementsCount)).fmt(formatter)
+    }
+}
+
+impl Drop for IndexBuffer {
+    fn drop(&mut self) {
+        let id = self.id.clone();
+        self.display.exec(proc(gl) {
+            unsafe { gl.DeleteBuffers(1, [ id ].as_ptr()); }
+        });
     }
 }
 
@@ -842,156 +993,5 @@ impl Display {
                 }
             }
         }).get();
-    }
-}
-
-impl PrimitiveType {
-    fn get_gl_enum(&self) -> gl::types::GLenum {
-        match *self {
-            PointsList => gl::POINTS,
-            LinesList => gl::LINES,
-            LinesListAdjacency => gl::LINES_ADJACENCY,
-            LineStrip => gl::LINE_STRIP,
-            LineStripAdjacency => gl::LINE_STRIP_ADJACENCY,
-            TrianglesList => gl::TRIANGLES,
-            TrianglesListAdjacency => gl::TRIANGLES_ADJACENCY,
-            TriangleStrip => gl::TRIANGLE_STRIP,
-            TriangleStripAdjacency => gl::TRIANGLE_STRIP_ADJACENCY,
-            TriangleFan => gl::TRIANGLE_FAN
-        }
-    }
-}
-
-impl Texture {
-    /// Returns the width of the texture.
-    pub fn get_width(&self) -> uint {
-        self.texture.width
-    }
-
-    /// Returns the height of the texture, or 1 if the texture is a 1D texture.
-    pub fn get_height(&self) -> uint {
-        self.texture.height
-    }
-
-    /// Returns the depth of the texture, or 1 if the texture is a 1D or 2D texture.
-    pub fn get_depth(&self) -> uint {
-        self.texture.depth
-    }
-
-    /// Returns the number of elements in the texture array, or 1 if the texture is not an array.
-    pub fn get_array_size(&self) -> uint {
-        self.texture.arraySize
-    }
-}
-
-impl Program {
-    /// Creates a new `ProgramUniforms` object.
-    ///
-    /// A `ProgramUniforms` object is a link between a program and its uniforms values.
-    pub fn build_uniforms(&self) -> ProgramUniforms {
-        ProgramUniforms {
-            display: self.program.display.clone(),
-            program: self.program.clone(),
-            textures: HashMap::new(),
-            values: HashMap::new(),
-            uniforms: self.program.uniforms.clone()
-        }
-    }
-}
-
-impl ProgramUniforms {
-    /// Modifies the value of a uniform of the program.
-    ///
-    /// `uniform_name` must be the name of a uniform in the program.
-    /// Nothing happens if the program doesn't contain a uniform with this name.
-    /// However the function will fail if the type of data doesn't match the type required
-    ///  by the shader source code.
-    pub fn set_value<T: data_types::UniformValue>(&mut self, uniform_name: &str, value: T) {
-        let &(location, gltype, _) = match self.uniforms.find(&uniform_name.to_string()) {
-            Some(a) => a,
-            None => return      // the uniform is not used, we ignore it
-        };
-
-        if gltype != data_types::UniformValue::get_gl_type(None::<T>) {
-            fail!("Type of data passed to set_value must match the type of data requested by the shader")
-        }
-
-        let mut data: Vec<char> = Vec::with_capacity(std::mem::size_of_val(&value));
-        unsafe { data.set_len(std::mem::size_of_val(&value)); }
-
-        let dataInside = data.as_mut_ptr() as *mut T;
-        unsafe { (*dataInside) = value; }
-
-        self.values.insert(location.clone(), (gltype, data));
-    }
-
-    /// Modifies the value of a texture uniform of the program.
-    ///
-    /// `uniform_name` must be the name of a uniform in the program.
-    /// Nothing happens if the program doesn't contain a uniform with this name.
-    /// However the function will fail if you call this function for a non-texture uniform.
-    pub fn set_texture(&mut self, uniform_name: &str, texture: &Texture) {
-        let &(location, gltype, _) = match self.uniforms.find(&uniform_name.to_string()) {
-            Some(a) => a,
-            None => return      // the uniform is not used, we ignore it
-        };
-
-        match gltype {
-            gl::SAMPLER_1D | gl::SAMPLER_2D | gl::SAMPLER_3D | gl::SAMPLER_CUBE |
-            gl::SAMPLER_1D_SHADOW | gl::SAMPLER_2D_SHADOW | gl::SAMPLER_1D_ARRAY |
-            gl::SAMPLER_2D_ARRAY | gl::SAMPLER_1D_ARRAY_SHADOW | gl::SAMPLER_2D_ARRAY_SHADOW |
-            gl::SAMPLER_2D_MULTISAMPLE | gl::SAMPLER_2D_MULTISAMPLE_ARRAY |
-            gl::SAMPLER_CUBE_SHADOW | gl::SAMPLER_BUFFER | gl::SAMPLER_2D_RECT |
-            gl::SAMPLER_2D_RECT_SHADOW | gl::INT_SAMPLER_1D | gl::INT_SAMPLER_2D |
-            gl::INT_SAMPLER_3D | gl::INT_SAMPLER_CUBE | gl::INT_SAMPLER_1D_ARRAY |
-            gl::INT_SAMPLER_2D_ARRAY | gl::INT_SAMPLER_2D_MULTISAMPLE |
-            gl::INT_SAMPLER_2D_MULTISAMPLE_ARRAY | gl::INT_SAMPLER_BUFFER |
-            gl::INT_SAMPLER_2D_RECT | gl::UNSIGNED_INT_SAMPLER_1D | gl::UNSIGNED_INT_SAMPLER_2D |
-            gl::UNSIGNED_INT_SAMPLER_3D | gl::UNSIGNED_INT_SAMPLER_CUBE |
-            gl::UNSIGNED_INT_SAMPLER_1D_ARRAY | gl::UNSIGNED_INT_SAMPLER_2D_ARRAY |
-            gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE |
-            gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY | gl::UNSIGNED_INT_SAMPLER_BUFFER |
-            gl::UNSIGNED_INT_SAMPLER_2D_RECT
-                => (),
-            _ => fail!("Trying to bind a texture to a non-texture uniform")
-        };
-
-        self.textures.insert(location.clone(), texture.texture.clone());
-    }
-}
-
-impl Drop for TextureImpl {
-    fn drop(&mut self) {
-        let id = self.id.clone();
-        self.display.exec(proc(gl) {
-            unsafe { gl.DeleteTextures(1, [ id ].as_ptr()); }
-        });
-    }
-}
-
-impl Drop for VertexBuffer {
-    fn drop(&mut self) {
-        let id = self.id.clone();
-        self.display.exec(proc(gl) {
-            unsafe { gl.DeleteBuffers(1, [ id ].as_ptr()); }
-        });
-    }
-}
-
-impl Drop for IndexBuffer {
-    fn drop(&mut self) {
-        let id = self.id.clone();
-        self.display.exec(proc(gl) {
-            unsafe { gl.DeleteBuffers(1, [ id ].as_ptr()); }
-        });
-    }
-}
-
-impl Drop for ShaderImpl {
-    fn drop(&mut self) {
-        let id = self.id.clone();
-        self.display.exec(proc(gl) {
-            gl.DeleteShader(id);
-        });
     }
 }
