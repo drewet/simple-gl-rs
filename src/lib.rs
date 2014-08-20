@@ -1,5 +1,6 @@
 #![feature(phase)]
 #![unstable]
+#![deny(missing_doc)]
 
 /*!
 Easy-to-use high-level OpenGL3+ wrapper.
@@ -165,6 +166,9 @@ mod gl {
     generate_gl_bindings!("gl", "core", "3.3", "struct")
 }
 
+/// Types of primitives.
+#[allow(missing_doc)]
+#[experimental = "Will be replaced soon"]
 pub enum PrimitiveType {
     PointsList,
     LinesList,
@@ -178,53 +182,82 @@ pub enum PrimitiveType {
     TriangleFan
 }
 
+/// Function that the GPU will use for blending.
 pub enum BlendingFunction {
+    /// Always replace the destination pixel by the source.
     AlwaysReplace,
+
+    /// Linear interpolation of the source pixel by the source pixel's alpha.
     LerpBySourceAlpha,
+
+    /// Linear interpolation of the source pixel by the destination pixel's alpha.
     LerpByDestinationAlpha
 }
 
 /// Culling mode.
 /// 
 /// Describes how triangles could be filtered before the fragment part.
-///
-/// - `CullingDisabled`: All triangles are always drawn.
-/// - `CullCounterClockWise`: Triangles whose vertices are counter-clock-wise won't be drawn.
-/// - `CullClockWise`: Triangles whose indices are clock-wise won't be drawn.
 pub enum BackfaceCullingMode {
+    /// All triangles are always drawn.
     CullingDisabled,
+
+    /// Triangles whose vertices are counter-clock-wise won't be drawn.
     CullCounterClockWise,
+
+    /// Triangles whose indices are clock-wise won't be drawn.
     CullClockWise
 }
 
 /// Function to use for out-of-bounds samples.
 ///
 /// This is how GL must handle samples that are outside the texture.
-///
-/// - `Repeat`: Samples at coord `x + 1` are mapped to coord `x`.
-/// - `Mirror`: Samples at coord `x + 1` are mapped to coord `1 - x`.
-/// - `Clamp`: Samples at coord `x + 1` are mapped to coord `1`.
 pub enum SamplerWrapFunction {
+    /// Samples at coord `x + 1` are mapped to coord `x`.
     Repeat,
+
+    /// Samples at coord `x + 1` are mapped to coord `1 - x`.
     Mirror,
+
+    /// Samples at coord `x + 1` are mapped to coord `1`.
     Clamp
 }
 
-/// 
+/// The function that the GPU will use when loading the value of a texel.
 pub enum SamplerFilter {
+    /// The nearest texel will be loaded.
     Nearest,
+
+    /// All nearby texels will be loaded and their values will be merged.
     Linear
 }
 
-/// 
+/// The function that the GPU will use to determine whether to write over an existing pixel
+///  on the target.
 pub enum DepthFunction {
+    /// Never replace the target pixel.
+    /// 
+    /// This option doesn't really make sense, but is here for completeness.
     Ignore,
+
+    /// Always replace the target pixel.
     Overwrite,
+
+    /// Replace if the z-value of the source is equal to the destination.
     IfEqual,
+
+    /// Replace if the z-value of the source is different than the destination.
     IfNotEqual,
+
+    /// Replace if the z-value of the source is more than the destination.
     IfMore,
+
+    /// Replace if the z-value of the source is more or equal to the destination.
     IfMoreOrEqual,
+
+    /// Replace if the z-value of the source is less than the destination.
     IfLess,
+
+    /// Replace if the z-value of the source is less or equal to the destination.
     IfLessOrEqual
 }
 
@@ -233,6 +266,7 @@ pub struct Display {
     context : Arc<context::Context>
 }
 
+/// A texture usable by OpenGL.
 pub struct Texture {
     texture: Arc<TextureImpl>
 }
@@ -259,6 +293,7 @@ struct ShaderImpl {
     id: gl::types::GLuint,
 }
 
+/// A combinaison of shaders linked together.
 pub struct Program {
     program: Arc<ProgramImpl>
 }
@@ -277,6 +312,7 @@ struct ProgramImpl {
     uniforms: Arc<HashMap<String, (gl::types::GLint, gl::types::GLenum, gl::types::GLint)>>     // location, type and size of each uniform, ordered by name
 }
 
+/// A program which stores values of uniforms.
 #[deriving(Clone)]
 pub struct ProgramUniforms {
     display: Arc<context::Context>,
@@ -286,6 +322,7 @@ pub struct ProgramUniforms {
     uniforms: Arc<HashMap<String, (gl::types::GLint, gl::types::GLenum, gl::types::GLint)>>     // same as the program's variable
 }
 
+/// A list of verices loaded in the graphics card's memory.
 pub struct VertexBuffer {
     display: Arc<context::Context>,
     id: gl::types::GLuint,
@@ -299,6 +336,7 @@ impl fmt::Show for VertexBuffer {
     }
 }
 
+/// A list of indices loaded in the graphics card's memory.
 pub struct IndexBuffer {
     display: Arc<context::Context>,
     id: gl::types::GLuint,
@@ -326,6 +364,7 @@ pub trait VertexFormat: Copy {
 
 /// Objects that can build a `Display` object.
 pub trait DisplayBuild {
+    /// Build a context and a `Display` to draw on it.
     fn build_simple_gl(self) -> Result<Display, ()>;
 }
 
@@ -758,18 +797,22 @@ impl PrimitiveType {
 }
 
 impl Texture {
+    /// Returns the width of the texture.
     pub fn get_width(&self) -> uint {
         self.texture.width
     }
 
+    /// Returns the height of the texture, or 1 if the texture is a 1D texture.
     pub fn get_height(&self) -> uint {
         self.texture.height
     }
 
+    /// Returns the depth of the texture, or 1 if the texture is a 1D or 2D texture.
     pub fn get_depth(&self) -> uint {
         self.texture.depth
     }
 
+    /// Returns the number of elements in the texture array, or 1 if the texture is not an array.
     pub fn get_array_size(&self) -> uint {
         self.texture.arraySize
     }

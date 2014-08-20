@@ -1,6 +1,9 @@
+#![allow(missing_doc)]
+
 use gl;
 
 pub trait GLDataType: Num + Copy {
+    /// Returns the OpenGL enumeration corresponding to this type.
     fn get_gl_type(Option<Self>) -> gl::types::GLenum;
 }
 
