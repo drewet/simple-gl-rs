@@ -351,6 +351,72 @@ impl fmt::Show for IndexBuffer {
     }
 }
 
+/// Frame buffer.
+struct FrameBufferObject {
+    display: Arc<context::Context>,
+    id: gl::types::GLuint,
+}
+
+impl FrameBufferObject {
+    /// Builds a new FBO.
+    fn new(display: Arc<context::Context>) -> FrameBufferObject {
+        let id = display.exec(proc(gl) {
+            unsafe {
+                let id: gl::types::GLuint = std::mem::uninitialized();
+                gl.GenFramebuffers(1, std::mem::transmute(&id));
+                id
+            }
+        }).get();
+
+        FrameBufferObject {
+            display: display,
+            id: id,
+        }
+    }
+}
+
+impl Drop for FrameBufferObject {
+    fn drop(&mut self) {
+        let id = self.id.clone();
+        self.display.exec(proc(gl) {
+            unsafe { gl.DeleteFramebuffers(1, [ id ].as_ptr()); }
+        });
+    }
+}
+
+/// Render buffer.
+struct RenderBuffer {
+    display: Arc<context::Context>,
+    id: gl::types::GLuint,
+}
+
+impl RenderBuffer {
+    /// Builds a new render buffer.
+    fn new(display: Arc<context::Context>) -> RenderBuffer {
+        let id = display.exec(proc(gl) {
+            unsafe {
+                let id: gl::types::GLuint = std::mem::uninitialized();
+                gl.GenRenderbuffers(1, std::mem::transmute(&id));
+                id
+            }
+        }).get();
+
+        RenderBuffer {
+            display: display,
+            id: id,
+        }
+    }
+}
+
+impl Drop for RenderBuffer {
+    fn drop(&mut self) {
+        let id = self.id.clone();
+        self.display.exec(proc(gl) {
+            unsafe { gl.DeleteRenderbuffers(1, [ id ].as_ptr()); }
+        });
+    }
+}
+
 /// For each binding, the data type, number of elements, and offset.
 /// Includes the total size.
 #[doc(hidden)]
