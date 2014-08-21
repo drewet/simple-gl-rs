@@ -36,9 +36,7 @@ fn main() {
     let vertex_buffer = {
         #[vertex_format]
         struct Vertex {
-            #[allow(dead_code)]
             iPosition: [f32, ..2],
-            #[allow(dead_code)]
             iColor: [f32, ..3],
         }
 
