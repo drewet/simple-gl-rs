@@ -308,7 +308,7 @@ impl Texture {
 
     /// Returns the number of elements in the texture array, or 1 if the texture is not an array.
     pub fn get_array_size(&self) -> uint {
-        self.texture.arraySize
+        self.texture.array_size
     }
 
     /// Start drawing on this texture.
@@ -350,10 +350,10 @@ impl Texture {
     /// Each pixel has R, G and B components between 0 and 255.
     // TODO: draft ; must be checked and turned public
     fn read_mipmap(&self, level: uint) -> Vec<u8> {
-        let bind_point = self.texture.bindPoint;
+        let bind_point = self.texture.bind_point;
         let id = self.texture.id;
         let buffer_size = self.texture.width * self.texture.height * self.texture.depth *
-            self.texture.arraySize * 3;
+            self.texture.array_size * 3;
 
         if level != 0 {
             unimplemented!()
@@ -383,11 +383,11 @@ impl fmt::Show for Texture {
 struct TextureImpl {
     display: Arc<DisplayImpl>,
     id: gl::types::GLuint,
-    bindPoint: gl::types::GLenum,
+    bind_point: gl::types::GLenum,
     width: uint,
     height: uint,
     depth: uint,
-    arraySize: uint
+    array_size: uint
 }
 
 impl Drop for TextureImpl {
@@ -418,15 +418,15 @@ impl<'t> Target<'t> {
                    program: &ProgramUniforms)
     {
         let fbo_id = self.framebuffer.as_ref().map(|f| f.id);
-        let vbID = vertexBuffer.id.clone();
-        let vbBindingsClone = vertexBuffer.bindings.clone();
-        let vbElementsSize = vertexBuffer.elements_size.clone();
-        let ibID = indexBuffer.id.clone();
-        let ibPrimitives = indexBuffer.primitives.clone();
-        let ibElemCounts = indexBuffer.elementsCount.clone();
-        let ibDataType = indexBuffer.dataType.clone();
-        let programID = program.program.id.clone();
-        let uniformsClone = program.clone();
+        let vb_id = vertexBuffer.id.clone();
+        let vb_bindingsclone = vertexBuffer.bindings.clone();
+        let vb_elementssize = vertexBuffer.elements_size.clone();
+        let ib_id = indexBuffer.id.clone();
+        let ib_primitives = indexBuffer.primitives.clone();
+        let ib_elemcounts = indexBuffer.elements_count.clone();
+        let ib_datatype = indexBuffer.data_type.clone();
+        let program_id = program.program.id.clone();
+        let uniforms_clone = program.clone();
 
         self.display.context.exec(proc(gl) {
             unsafe {
@@ -437,19 +437,19 @@ impl<'t> Target<'t> {
                 gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
                 // binding program
-                gl.UseProgram(programID);
+                gl.UseProgram(program_id);
 
                 // binding program uniforms
                 {
                     let mut activeTexture: uint = 0;
-                    for (&location, ref texture) in uniformsClone.textures.iter() {
+                    for (&location, ref texture) in uniforms_clone.textures.iter() {
                         gl.ActiveTexture(gl::TEXTURE0 + activeTexture as u32);
-                        gl.BindTexture(texture.bindPoint, texture.id);
+                        gl.BindTexture(texture.bind_point, texture.id);
                         gl.Uniform1i(location, activeTexture as i32);
                         activeTexture = activeTexture + 1;
                     }
 
-                    for (&location, &(ref datatype, ref data)) in uniformsClone.values.iter() {
+                    for (&location, &(ref datatype, ref data)) in uniforms_clone.values.iter() {
                         match *datatype {
                             gl::FLOAT       => gl.Uniform1fv(location, 1, data.as_ptr() as *const f32),
                             gl::FLOAT_MAT4  => gl.UniformMatrix4fv(location, 1, 0, data.as_ptr() as *const f32),
@@ -460,20 +460,20 @@ impl<'t> Target<'t> {
                 }
 
                 // binding buffers
-                gl.BindBuffer(gl::ARRAY_BUFFER, vbID);
-                gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibID);
+                gl.BindBuffer(gl::ARRAY_BUFFER, vb_id);
+                gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ib_id);
 
                 // binding vertex buffer
                 let mut locations = Vec::new();
-                for (name, &(dataType, dataSize, dataOffset)) in vbBindingsClone.iter() {
-                    let loc = gl.GetAttribLocation(programID, name.to_c_str().unwrap());
+                for (name, &(data_type, data_size, dataOffset)) in vb_bindingsclone.iter() {
+                    let loc = gl.GetAttribLocation(program_id, name.to_c_str().unwrap());
                     locations.push(loc);
 
                     if loc != -1 {
-                        match dataType {
+                        match data_type {
                             gl::BYTE | gl::UNSIGNED_BYTE | gl::SHORT | gl::UNSIGNED_SHORT | gl::INT | gl::UNSIGNED_INT
-                                => gl.VertexAttribIPointer(loc as u32, dataSize, dataType, vbElementsSize as i32, dataOffset as *const libc::c_void),
-                            _ => gl.VertexAttribPointer(loc as u32, dataSize, dataType, 0, vbElementsSize as i32, dataOffset as *const libc::c_void)
+                                => gl.VertexAttribIPointer(loc as u32, data_size, data_type, vb_elementssize as i32, dataOffset as *const libc::c_void),
+                            _ => gl.VertexAttribPointer(loc as u32, data_size, data_type, 0, vb_elementssize as i32, dataOffset as *const libc::c_void)
                         }
                         
                         gl.EnableVertexAttribArray(loc as u32);
@@ -481,7 +481,7 @@ impl<'t> Target<'t> {
                 }
                 
                 // drawing
-                gl.DrawElements(ibPrimitives, ibElemCounts as i32, ibDataType, std::ptr::null());
+                gl.DrawElements(ib_primitives, ib_elemcounts as i32, ib_datatype, std::ptr::null());
 
                 // disable vertex attrib array
                 for l in locations.iter() {
@@ -725,14 +725,14 @@ impl<T> Drop for VertexBuffer<T> {
 pub struct IndexBuffer {
     display: Arc<DisplayImpl>,
     id: gl::types::GLuint,
-    elementsCount: uint,
-    dataType: gl::types::GLenum,
+    elements_count: uint,
+    data_type: gl::types::GLenum,
     primitives: gl::types::GLenum
 }
 
 impl fmt::Show for IndexBuffer {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
-        (format!("IndexBuffer #{} (elements: {})", self.id, self.elementsCount)).fmt(formatter)
+        (format!("IndexBuffer #{} (elements: {})", self.id, self.elements_count)).fmt(formatter)
     }
 }
 
@@ -893,15 +893,15 @@ impl Display {
     /// 
     pub fn build_index_buffer<T: data_types::GLDataType>(&self, prim: PrimitiveType, data: &[T]) -> IndexBuffer {
         let elementsSize = std::mem::size_of_val(&data[0]);
-        let dataSize = data.len() * elementsSize;
-        let dataPtr: *const libc::c_void = data.as_ptr() as *const libc::c_void;
+        let data_size = data.len() * elementsSize;
+        let data_ptr: *const libc::c_void = data.as_ptr() as *const libc::c_void;
 
         let id = self.context.context.exec(proc(gl) {
             unsafe {
                 let id: gl::types::GLuint = std::mem::uninitialized();
                 gl.GenBuffers(1, std::mem::transmute(&id));
                 gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, id);
-                gl.BufferData(gl::ELEMENT_ARRAY_BUFFER, dataSize as gl::types::GLsizeiptr, dataPtr, gl::STATIC_DRAW);
+                gl.BufferData(gl::ELEMENT_ARRAY_BUFFER, data_size as gl::types::GLsizeiptr, data_ptr, gl::STATIC_DRAW);
                 id
             }
         }).get();
@@ -909,17 +909,17 @@ impl Display {
         IndexBuffer {
             display: self.context.clone(),
             id: id,
-            elementsCount: data.len(),
-            dataType: data_types::GLDataType::get_gl_type(None::<T>),
+            elements_count: data.len(),
+            data_type: data_types::GLDataType::get_gl_type(None::<T>),
             primitives: prim.get_gl_enum()
         }
     }
 
     /// Builds an individual shader.
-    fn build_shader(&self, stype: gl::types::GLenum, sourceCode: &str)
+    fn build_shader(&self, stype: gl::types::GLenum, source_code: &str)
         -> Result<Arc<ShaderImpl>, String>
     {
-        let srcCode = sourceCode.to_string();
+        let srcCode = source_code.to_string();
 
         let idResult = self.context.context.exec(proc(gl) {
             unsafe {
@@ -928,18 +928,18 @@ impl Display {
                 gl.ShaderSource(id, 1, [ srcCode.to_c_str().unwrap() ].as_ptr(), std::ptr::null());
                 gl.CompileShader(id);
 
-                let mut compilationSuccess: gl::types::GLint = std::mem::uninitialized();
-                gl.GetShaderiv(id, gl::COMPILE_STATUS, &mut compilationSuccess);
+                let mut compilation_success: gl::types::GLint = std::mem::uninitialized();
+                gl.GetShaderiv(id, gl::COMPILE_STATUS, &mut compilation_success);
 
-                if compilationSuccess == 0 {
-                    let mut errorLogSize: gl::types::GLint = std::mem::uninitialized();
-                    gl.GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut errorLogSize);
+                if compilation_success == 0 {
+                    let mut error_log_size: gl::types::GLint = std::mem::uninitialized();
+                    gl.GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut error_log_size);
 
-                    let mut errorLog: Vec<u8> = Vec::with_capacity(errorLogSize as uint);
-                    gl.GetShaderInfoLog(id, errorLogSize, &mut errorLogSize, errorLog.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
-                    errorLog.set_len(errorLogSize as uint);
+                    let mut error_log: Vec<u8> = Vec::with_capacity(error_log_size as uint);
+                    gl.GetShaderInfoLog(id, error_log_size, &mut error_log_size, error_log.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
+                    error_log.set_len(error_log_size as uint);
 
-                    let msg = String::from_utf8(errorLog).unwrap();
+                    let msg = String::from_utf8(error_log).unwrap();
                     return Err(msg)
                 }
 
@@ -956,25 +956,25 @@ impl Display {
     }
 
     /// Builds a new texture.
-    pub fn build_texture<T: data_types::GLDataTuple>(&self, data: &[T], width: uint, height: uint, depth: uint, arraySize: uint)
+    pub fn build_texture<T: data_types::GLDataTuple>(&self, data: &[T], width: uint, height: uint, depth: uint, array_size: uint)
         -> Texture
     {
         let element_components = data_types::GLDataTuple::get_num_elems(None::<T>);
 
-        if width * height * depth * arraySize != data.len() {
-            fail!("Texture data has different size from width*height*depth*arraySize*elemLen");
+        if width * height * depth * array_size != data.len() {
+            fail!("Texture data has different size from width*height*depth*array_size*elemLen");
         }
 
-        let textureType = if height == 1 && depth == 1 {
-            if arraySize == 1 { gl::TEXTURE_1D } else { gl::TEXTURE_1D_ARRAY }
+        let texture_type = if height == 1 && depth == 1 {
+            if array_size == 1 { gl::TEXTURE_1D } else { gl::TEXTURE_1D_ARRAY }
         } else if depth == 1 {
-            if arraySize == 1 { gl::TEXTURE_2D } else { gl::TEXTURE_2D_ARRAY }
+            if array_size == 1 { gl::TEXTURE_2D } else { gl::TEXTURE_2D_ARRAY }
         } else {
             gl::TEXTURE_3D
         };
 
         let data_type = data_types::GLDataTuple::get_gl_type(None::<T>);
-        let dataRaw: *const libc::c_void = unsafe { std::mem::transmute(data.as_ptr()) };
+        let data_raw: *const libc::c_void = unsafe { std::mem::transmute(data.as_ptr()) };
 
         let (data_format, data_type) = match (element_components, data_type) {
             (1, f) => (gl::RED, f),
@@ -991,27 +991,27 @@ impl Display {
                 let id: gl::types::GLuint = std::mem::uninitialized();
                 gl.GenTextures(1, std::mem::transmute(&id));
 
-                gl.BindTexture(textureType, id);
+                gl.BindTexture(texture_type, id);
 
-                gl.TexParameteri(textureType, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-                if height != 1 || depth != 1 || arraySize != 1 {
-                    gl.TexParameteri(textureType, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+                gl.TexParameteri(texture_type, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+                if height != 1 || depth != 1 || array_size != 1 {
+                    gl.TexParameteri(texture_type, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
                 }
-                if depth != 1 || arraySize != 1 {
-                    gl.TexParameteri(textureType, gl::TEXTURE_WRAP_R, gl::REPEAT as i32);
+                if depth != 1 || array_size != 1 {
+                    gl.TexParameteri(texture_type, gl::TEXTURE_WRAP_R, gl::REPEAT as i32);
                 }
-                gl.TexParameteri(textureType, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-                gl.TexParameteri(textureType, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
+                gl.TexParameteri(texture_type, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+                gl.TexParameteri(texture_type, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
 
-                if textureType == gl::TEXTURE_3D || textureType == gl::TEXTURE_2D_ARRAY {
-                    gl.TexImage3D(textureType, 0, gl::RGBA as i32, width as i32, height as i32, if depth > 1 { depth } else { arraySize } as i32, 0, data_format as u32, data_type, dataRaw);
-                } else if textureType == gl::TEXTURE_2D || textureType == gl::TEXTURE_1D_ARRAY {
-                    gl.TexImage2D(textureType, 0, gl::RGBA as i32, width as i32, height as i32, 0, data_format as u32, data_type, dataRaw);
+                if texture_type == gl::TEXTURE_3D || texture_type == gl::TEXTURE_2D_ARRAY {
+                    gl.TexImage3D(texture_type, 0, gl::RGBA as i32, width as i32, height as i32, if depth > 1 { depth } else { array_size } as i32, 0, data_format as u32, data_type, data_raw);
+                } else if texture_type == gl::TEXTURE_2D || texture_type == gl::TEXTURE_1D_ARRAY {
+                    gl.TexImage2D(texture_type, 0, gl::RGBA as i32, width as i32, height as i32, 0, data_format as u32, data_type, data_raw);
                 } else {
-                    gl.TexImage1D(textureType, 0, gl::RGBA as i32, width as i32, 0, data_format as u32, data_type, dataRaw);
+                    gl.TexImage1D(texture_type, 0, gl::RGBA as i32, width as i32, 0, data_format as u32, data_type, data_raw);
                 }
 
-                gl.GenerateMipmap(textureType);
+                gl.GenerateMipmap(texture_type);
 
                 id
             }
@@ -1021,11 +1021,11 @@ impl Display {
             texture: Arc::new(TextureImpl {
                 display: self.context.clone(),
                 id: id,
-                bindPoint: textureType,
+                bind_point: texture_type,
                 width: width,
                 height: height,
                 depth: depth,
-                arraySize: arraySize
+                array_size: array_size
             })
         }
     }
@@ -1035,17 +1035,17 @@ impl Display {
     pub fn build_program(&self, vertex_shader: &str, fragment_shader: &str,
                          geometry_shader: Option<&str>) -> Result<Program, String>
     {
-        let mut shadersStore = Vec::new();
-        shadersStore.push(try!(self.build_shader(gl::VERTEX_SHADER, vertex_shader)));
+        let mut shaders_store = Vec::new();
+        shaders_store.push(try!(self.build_shader(gl::VERTEX_SHADER, vertex_shader)));
         match geometry_shader {
-            Some(gs) => shadersStore.push(try!(self.build_shader(gl::GEOMETRY_SHADER, gs))),
+            Some(gs) => shaders_store.push(try!(self.build_shader(gl::GEOMETRY_SHADER, gs))),
             None => ()
         }
-        shadersStore.push(try!(self.build_shader(gl::FRAGMENT_SHADER, fragment_shader)));
+        shaders_store.push(try!(self.build_shader(gl::FRAGMENT_SHADER, fragment_shader)));
 
-        let mut shadersIDs = Vec::new();
-        for sh in shadersStore.iter() {
-            shadersIDs.push(sh.id);
+        let mut shaders_ids = Vec::new();
+        for sh in shaders_store.iter() {
+            shaders_ids.push(sh.id);
         }
 
         let id = try!(self.context.context.exec(proc(gl) {
@@ -1056,15 +1056,15 @@ impl Display {
                 }
 
                 // attaching shaders
-                for sh in shadersIDs.iter() {
+                for sh in shaders_ids.iter() {
                     gl.AttachShader(id, sh.clone());
                 }
 
                 // linking and checking for errors
                 gl.LinkProgram(id);
-                {   let mut linkSuccess: gl::types::GLint = std::mem::uninitialized();
-                    gl.GetProgramiv(id, gl::LINK_STATUS, &mut linkSuccess);
-                    if linkSuccess == 0 {
+                {   let mut link_success: gl::types::GLint = std::mem::uninitialized();
+                    gl.GetProgramiv(id, gl::LINK_STATUS, &mut link_success);
+                    if link_success == 0 {
                         match gl.GetError() {
                             gl::NO_ERROR => (),
                             gl::INVALID_VALUE => return Err(format!("glLinkProgram triggered GL_INVALID_VALUE")),
@@ -1072,14 +1072,14 @@ impl Display {
                             _ => return Err(format!("glLinkProgram triggered an unknown error"))
                         };
 
-                        let mut errorLogSize: gl::types::GLint = std::mem::uninitialized();
-                        gl.GetProgramiv(id, gl::INFO_LOG_LENGTH, &mut errorLogSize);
+                        let mut error_log_size: gl::types::GLint = std::mem::uninitialized();
+                        gl.GetProgramiv(id, gl::INFO_LOG_LENGTH, &mut error_log_size);
 
-                        let mut errorLog: Vec<u8> = Vec::with_capacity(errorLogSize as uint);
-                        gl.GetProgramInfoLog(id, errorLogSize, &mut errorLogSize, errorLog.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
-                        errorLog.set_len(errorLogSize as uint);
+                        let mut error_log: Vec<u8> = Vec::with_capacity(error_log_size as uint);
+                        gl.GetProgramInfoLog(id, error_log_size, &mut error_log_size, error_log.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
+                        error_log.set_len(error_log_size as uint);
 
-                        let msg = String::from_utf8(errorLog).unwrap();
+                        let msg = String::from_utf8(error_log).unwrap();
                         return Err(msg)
                     }
                 }
@@ -1097,18 +1097,18 @@ impl Display {
                 gl.GetProgramiv(id, gl::ACTIVE_UNIFORMS, &mut activeUniforms);
 
                 for uniformID in range(0, activeUniforms) {
-                    let mut uniformNameTmp: Vec<u8> = Vec::with_capacity(64);
-                    let mut uniformNameTmpLen = 63;
+                    let mut uniform_name_tmp: Vec<u8> = Vec::with_capacity(64);
+                    let mut uniform_name_tmp_len = 63;
 
-                    let mut dataType: gl::types::GLenum = std::mem::uninitialized();
-                    let mut dataSize: gl::types::GLint = std::mem::uninitialized();
-                    gl.GetActiveUniform(id, uniformID as gl::types::GLuint, uniformNameTmpLen, &mut uniformNameTmpLen, &mut dataSize, &mut dataType, uniformNameTmp.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
-                    uniformNameTmp.set_len(uniformNameTmpLen as uint);
+                    let mut data_type: gl::types::GLenum = std::mem::uninitialized();
+                    let mut data_size: gl::types::GLint = std::mem::uninitialized();
+                    gl.GetActiveUniform(id, uniformID as gl::types::GLuint, uniform_name_tmp_len, &mut uniform_name_tmp_len, &mut data_size, &mut data_type, uniform_name_tmp.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
+                    uniform_name_tmp.set_len(uniform_name_tmp_len as uint);
 
-                    let uniformName = String::from_utf8(uniformNameTmp).unwrap();
+                    let uniformName = String::from_utf8(uniform_name_tmp).unwrap();
                     let location = gl.GetUniformLocation(id, uniformName.to_c_str().unwrap());
 
-                    uniforms.insert(uniformName, (location, dataType, dataSize));
+                    uniforms.insert(uniformName, (location, data_type, data_size));
                 }
 
                 Arc::new(uniforms)
@@ -1119,7 +1119,7 @@ impl Display {
         Ok(Program {
             program: Arc::new(ProgramImpl {
                 display: self.context.clone(),
-                shaders: shadersStore,
+                shaders: shaders_store,
                 id: id,
                 uniforms: uniforms
             })
