@@ -126,8 +126,7 @@ fn main() {
         texture.draw().draw(&to_texture_vertex_buffer, &to_texture_index_buffer, &to_texture_uniforms);
         to_dest_uniforms.set_texture("uTexture", &texture);
 
-        display.draw(&to_dest_vertex_buffer, &to_dest_index_buffer, &to_dest_uniforms);
-        display.end_frame();
+        display.draw().draw(&to_dest_vertex_buffer, &to_dest_index_buffer, &to_dest_uniforms);
         timer::sleep(Duration::milliseconds(17));
 
         for event in display.poll_events().move_iter() {

@@ -24,66 +24,95 @@ extern crate simple_gl_macros;
 extern crate gl_init;
 extern crate simple_gl;
 
-#[vertex_format]
-struct Vertex {
-    iPosition: [f32, ..2]
-}
-
-static VERTEX_SRC: &'static str = "
-    #version 110
-
-    uniform mat4 uMatrix;
-
-    attribute vec2 iPosition;
-
-    void main() {
-        gl_Position = vec4(iPosition, 0.0, 1.0) * uMatrix;
-    }
-";
-
-static FRAGMENT_SRC: &'static str = "
-    #version 110
-
-    void main() {
-        gl_FragColor = vec4(vTexCoords.x, vTexCoords.y, 0.0, 1.0);
-    }
-";
-
 fn main() {
     use simple_gl::DisplayBuild;
 
-    let display = gl_init::WindowBuilder::new().build_simple_gl().unwrap();
+    // building the display, ie. the main object
+    let display = gl_init::WindowBuilder::new()
+        .build_simple_gl()
+        .unwrap();
 
-    let program = display.build_program(VERTEX_SRC, FRAGMENT_SRC).unwrap();
+    // building the vertex buffer, which contains all the vertices that we will draw
+    let vertex_buffer = {
+        #[vertex_format]
+        struct Vertex {
+            #[allow(dead_code)]
+            iPosition: [f32, ..2],
+            #[allow(dead_code)]
+            iColor: [f32, ..3],
+        }
 
-    let vb = display.build_vertex_buffer(
-        vec![
-            Vertex { iPosition: [-1.0, -1.0] },
-            Vertex { iPosition: [-1.0,  1.0] },
-            Vertex { iPosition: [ 1.0,  1.0] },
-            Vertex { iPosition: [ 1.0, -1.0] }
-        ]
-    );
+        simple_gl::VertexBuffer::new(&display, 
+            vec![
+                Vertex { iPosition: [-0.5, -0.5], iColor: [0.0, 1.0, 0.0] },
+                Vertex { iPosition: [ 0.0,  0.5], iColor: [0.0, 0.0, 1.0] },
+                Vertex { iPosition: [ 0.5, -0.5], iColor: [1.0, 0.0, 0.0] },
+            ]
+        )
+    };
 
-    let ib = display.build_index_buffer(simple_gl::TrianglesList,
-        &[ 0 as u16, 1, 2, 0, 2, 3 ]);
+    // building the index buffer
+    let index_buffer = display.build_index_buffer(simple_gl::TrianglesList,
+        &[ 0u16, 1, 2 ]);
 
-    let mut uniforms = program.build_uniforms();
+    // compiling shaders and linking them together
+    let program = display.build_program(
+        // vertex shader
+        "
+            #version 110
 
-    uniforms.set_value("uMatrix", [
+            uniform mat4 uMatrix;
+
+            attribute vec2 iPosition;
+            attribute vec3 iColor;
+
+            varying vec3 vColor;
+
+            void main() {
+                gl_Position = vec4(iPosition, 0.0, 1.0) * uMatrix;
+                vColor = iColor;
+            }
+        ",
+
+        // fragment shader
+        "
+            #version 110
+            varying vec3 vColor;
+
+            void main() {
+                gl_FragColor = vec4(vColor, 1.0);
+            }
+        ",
+
+        // geometry shader
+        None)
+        .unwrap();
+
+    // creating an object that will allow us to set the uniforms of our shaders
+    let mut program = program.build_uniforms();
+    program.set_value("uMatrix", [
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
         [0.0, 0.0, 1.0, 0.0],
         [0.0, 0.0, 0.0, 1.0f32]
     ]);
     
+    // the main loop
+    // each cycle will draw once
     'main: loop {
         use std::io::timer;
-        display.draw(&vb, &ib, &uniforms);
-        display.end_frame();
-        timer::sleep(17);
+        use std::time::Duration;
 
-        for event in display.recv().move_iter() {
+        // drawing a frame
+        let target = display.draw();
+        target.draw(&vertex_buffer, &index_buffer, &program);
+        target.finish();
+
+        // sleeping for some time in order not to use up too much CPU
+        timer::sleep(Duration::milliseconds(17));
+
+        // polling and handling the events received by the window
+        for event in display.poll_events().move_iter() {
             match event {
                 gl_init::Closed => break 'main,
                 _ => ()

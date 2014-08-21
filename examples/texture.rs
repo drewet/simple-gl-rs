@@ -96,8 +96,7 @@ fn main() {
         use std::io::timer;
         use std::time::Duration;
 
-        display.draw(&vb, &ib, &uniforms);
-        display.end_frame();
+        display.draw().draw(&vb, &ib, &uniforms);
         timer::sleep(Duration::milliseconds(17));
 
         for event in display.poll_events().move_iter() {

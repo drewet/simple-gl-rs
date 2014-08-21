@@ -323,8 +323,10 @@ impl Texture {
         // returning the target
         Target {
             display: display,
+            display_hold: None,
             texture: Some(self),
             framebuffer: Some(fbo),
+            execute_end: None,
         }
     }
 
@@ -394,11 +396,17 @@ impl Drop for TextureImpl {
 /// A target where things can be drawn.
 pub struct Target<'t> {
     display: Arc<DisplayImpl>,
+    display_hold: Option<&'t Display>,
     texture: Option<&'t mut Texture>,
     framebuffer: Option<FrameBufferObject>,
+    execute_end: Option<proc(&DisplayImpl)>,
 }
 
 impl<'t> Target<'t> {
+    /// Stop drawing on the target.
+    pub fn finish(self) {
+    }
+
     /// Draws.
     pub fn draw<V>(&self, vertexBuffer: &VertexBuffer<V>, indexBuffer: &IndexBuffer,
                    program: &ProgramUniforms)
@@ -475,6 +483,16 @@ impl<'t> Target<'t> {
                 }
             }
         }).get();
+    }
+}
+
+#[unsafe_destructor]
+impl<'t> Drop for Target<'t> {
+    fn drop(&mut self) {
+        match self.execute_end.take() {
+            Some(f) => f(&*self.display),
+            None => ()
+        }
     }
 }
 
@@ -806,14 +824,22 @@ impl Display {
         self.context.context.recv()
     }
 
-    /// Call this function when you have finished drawing a frame.
-    pub fn end_frame(&self) {
-        self.context.context.swap_buffers();
+    /// 
+    pub fn draw(&self) -> Target {
+        Target {
+            display: self.context.clone(),
+            display_hold: Some(self),
+            texture: None,
+            framebuffer: None,
+            execute_end: Some(proc(context: &DisplayImpl) {
+                context.context.swap_buffers();
 
-        self.context.context.exec(proc(gl) {
-            gl.ClearColor(0.0, 0.0, 0.0, 1.0);
-            gl.Clear(gl::COLOR_BUFFER_BIT);
-        });
+                context.context.exec(proc(gl) {
+                    gl.ClearColor(0.0, 0.0, 0.0, 1.0);
+                    gl.Clear(gl::COLOR_BUFFER_BIT);
+                });
+            }),
+        }
     }
 
     /// See `VertexBuffer::new`
@@ -1083,82 +1109,5 @@ impl Display {
                 uniforms: uniforms
             })
         })
-    }
-
-    /// Draws.
-    pub fn draw<V>(&self, vertexBuffer: &VertexBuffer<V>, indexBuffer: &IndexBuffer,
-                   program: &ProgramUniforms)
-    {
-        let vbID = vertexBuffer.id.clone();
-        let vbBindingsClone = vertexBuffer.bindings.clone();
-        let vbElementsSize = vertexBuffer.elements_size.clone();
-        let ibID = indexBuffer.id.clone();
-        let ibPrimitives = indexBuffer.primitives.clone();
-        let ibElemCounts = indexBuffer.elementsCount.clone();
-        let ibDataType = indexBuffer.dataType.clone();
-        let programID = program.program.id.clone();
-        let uniformsClone = program.clone();
-
-        self.context.context.exec(proc(gl) {
-            unsafe {
-                gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
-
-                gl.Disable(gl::DEPTH_TEST);
-                gl.Enable(gl::BLEND);
-                gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-
-                // binding program
-                gl.UseProgram(programID);
-
-                // binding program uniforms
-                {
-                    let mut activeTexture: uint = 0;
-                    for (&location, ref texture) in uniformsClone.textures.iter() {
-                        gl.ActiveTexture(gl::TEXTURE0 + activeTexture as u32);
-                        gl.BindTexture(texture.bindPoint, texture.id);
-                        gl.Uniform1i(location, activeTexture as i32);
-                        activeTexture = activeTexture + 1;
-                    }
-
-                    for (&location, &(ref datatype, ref data)) in uniformsClone.values.iter() {
-                        match *datatype {
-                            gl::FLOAT       => gl.Uniform1fv(location, 1, data.as_ptr() as *const f32),
-                            gl::FLOAT_MAT4  => gl.UniformMatrix4fv(location, 1, 0, data.as_ptr() as *const f32),
-                            _ => fail!("Loading uniforms for this type not implemented")
-                        }
-                        //gl.Uniform1i(location, activeTexture as i32);
-                    }
-                }
-
-                // binding buffers
-                gl.BindBuffer(gl::ARRAY_BUFFER, vbID);
-                gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibID);
-
-                // binding vertex buffer
-                let mut locations = Vec::new();
-                for (name, &(dataType, dataSize, dataOffset)) in vbBindingsClone.iter() {
-                    let loc = gl.GetAttribLocation(programID, name.to_c_str().unwrap());
-                    locations.push(loc);
-
-                    if loc != -1 {
-                        match dataType {
-                            gl::BYTE | gl::UNSIGNED_BYTE | gl::SHORT | gl::UNSIGNED_SHORT | gl::INT | gl::UNSIGNED_INT
-                                => gl.VertexAttribIPointer(loc as u32, dataSize, dataType, vbElementsSize as i32, dataOffset as *const libc::c_void),
-                            _ => gl.VertexAttribPointer(loc as u32, dataSize, dataType, 0, vbElementsSize as i32, dataOffset as *const libc::c_void)
-                        }
-                        
-                        gl.EnableVertexAttribArray(loc as u32);
-                    }
-                }
-                
-                // drawing
-                gl.DrawElements(ibPrimitives, ibElemCounts as i32, ibDataType, std::ptr::null());
-
-                // disable vertex attrib array
-                for l in locations.iter() {
-                    gl.DisableVertexAttribArray(l.clone() as u32);
-                }
-            }
-        }).get();
     }
 }
