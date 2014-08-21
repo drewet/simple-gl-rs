@@ -279,11 +279,6 @@ pub enum DepthFunction {
     IfLessOrEqual
 }
 
-/// The main object of this library. Controls the whole display.
-pub struct Display {
-    context : Arc<context::Context>
-}
-
 /// A texture usable by OpenGL.
 pub struct Texture {
     texture: Arc<TextureImpl>
@@ -333,7 +328,7 @@ impl Texture {
             unimplemented!()
         }
 
-        self.texture.display.exec(proc(gl) {
+        self.texture.display.context.exec(proc(gl) {
             let mut buffer = Vec::from_elem(buffer_size, 0u8);
 
             unsafe {
@@ -355,7 +350,7 @@ impl fmt::Show for Texture {
 }
 
 struct TextureImpl {
-    display: Arc<context::Context>,
+    display: Arc<DisplayImpl>,
     id: gl::types::GLuint,
     bindPoint: gl::types::GLenum,
     width: uint,
@@ -367,21 +362,21 @@ struct TextureImpl {
 impl Drop for TextureImpl {
     fn drop(&mut self) {
         let id = self.id.clone();
-        self.display.exec(proc(gl) {
+        self.display.context.exec(proc(gl) {
             unsafe { gl.DeleteTextures(1, [ id ].as_ptr()); }
         });
     }
 }
 
 struct ShaderImpl {
-    display: Arc<context::Context>,
+    display: Arc<DisplayImpl>,
     id: gl::types::GLuint,
 }
 
 impl Drop for ShaderImpl {
     fn drop(&mut self) {
         let id = self.id.clone();
-        self.display.exec(proc(gl) {
+        self.display.context.exec(proc(gl) {
             gl.DeleteShader(id);
         });
     }
@@ -414,7 +409,7 @@ impl fmt::Show for Program {
 }
 
 struct ProgramImpl {
-    display: Arc<context::Context>,
+    display: Arc<DisplayImpl>,
     #[allow(dead_code)]
     shaders: Vec<Arc<ShaderImpl>>,
     id: gl::types::GLuint,
@@ -424,7 +419,7 @@ struct ProgramImpl {
 /// A program which stores values of uniforms.
 #[deriving(Clone)]
 pub struct ProgramUniforms {
-    display: Arc<context::Context>,
+    display: Arc<DisplayImpl>,
     program: Arc<ProgramImpl>,
     textures: HashMap<gl::types::GLint, Arc<TextureImpl>>,
     values: HashMap<gl::types::GLint, (gl::types::GLenum, Vec<char>)>,
@@ -494,7 +489,7 @@ impl ProgramUniforms {
 
 /// A list of verices loaded in the graphics card's memory.
 pub struct VertexBuffer<T> {
-    display: Arc<context::Context>,
+    display: Arc<DisplayImpl>,
     id: gl::types::GLuint,
     elements_size: uint,
     bindings: VertexBindings,
@@ -510,7 +505,7 @@ impl<T> fmt::Show for VertexBuffer<T> {
 impl<T> Drop for VertexBuffer<T> {
     fn drop(&mut self) {
         let id = self.id.clone();
-        self.display.exec(proc(gl) {
+        self.display.context.exec(proc(gl) {
             unsafe { gl.DeleteBuffers(1, [ id ].as_ptr()); }
         });
     }
@@ -518,7 +513,7 @@ impl<T> Drop for VertexBuffer<T> {
 
 /// A list of indices loaded in the graphics card's memory.
 pub struct IndexBuffer {
-    display: Arc<context::Context>,
+    display: Arc<DisplayImpl>,
     id: gl::types::GLuint,
     elementsCount: uint,
     dataType: gl::types::GLenum,
@@ -534,7 +529,7 @@ impl fmt::Show for IndexBuffer {
 impl Drop for IndexBuffer {
     fn drop(&mut self) {
         let id = self.id.clone();
-        self.display.exec(proc(gl) {
+        self.display.context.exec(proc(gl) {
             unsafe { gl.DeleteBuffers(1, [ id ].as_ptr()); }
         });
     }
@@ -542,14 +537,14 @@ impl Drop for IndexBuffer {
 
 /// Frame buffer.
 struct FrameBufferObject {
-    display: Arc<context::Context>,
+    display: Arc<DisplayImpl>,
     id: gl::types::GLuint,
 }
 
 impl FrameBufferObject {
     /// Builds a new FBO.
-    fn new(display: Arc<context::Context>) -> FrameBufferObject {
-        let id = display.exec(proc(gl) {
+    fn new(display: Arc<DisplayImpl>) -> FrameBufferObject {
+        let id = display.context.exec(proc(gl) {
             unsafe {
                 let id: gl::types::GLuint = std::mem::uninitialized();
                 gl.GenFramebuffers(1, std::mem::transmute(&id));
@@ -567,7 +562,7 @@ impl FrameBufferObject {
 impl Drop for FrameBufferObject {
     fn drop(&mut self) {
         let id = self.id.clone();
-        self.display.exec(proc(gl) {
+        self.display.context.exec(proc(gl) {
             unsafe { gl.DeleteFramebuffers(1, [ id ].as_ptr()); }
         });
     }
@@ -575,14 +570,14 @@ impl Drop for FrameBufferObject {
 
 /// Render buffer.
 struct RenderBuffer {
-    display: Arc<context::Context>,
+    display: Arc<DisplayImpl>,
     id: gl::types::GLuint,
 }
 
 impl RenderBuffer {
     /// Builds a new render buffer.
-    fn new(display: Arc<context::Context>) -> RenderBuffer {
-        let id = display.exec(proc(gl) {
+    fn new(display: Arc<DisplayImpl>) -> RenderBuffer {
+        let id = display.context.exec(proc(gl) {
             unsafe {
                 let id: gl::types::GLuint = std::mem::uninitialized();
                 gl.GenRenderbuffers(1, std::mem::transmute(&id));
@@ -600,7 +595,7 @@ impl RenderBuffer {
 impl Drop for RenderBuffer {
     fn drop(&mut self) {
         let id = self.id.clone();
-        self.display.exec(proc(gl) {
+        self.display.context.exec(proc(gl) {
             unsafe { gl.DeleteRenderbuffers(1, [ id ].as_ptr()); }
         });
     }
@@ -627,21 +622,34 @@ impl DisplayBuild for gl_init::WindowBuilder {
     fn build_simple_gl(self) -> Result<Display, ()> {
         let window = try!(self.build().map_err(|_| ()));
         let context = context::Context::new(window);
-        Ok(Display { context: Arc::new(context) })
+        Ok(Display {
+            context: Arc::new(DisplayImpl {
+                context: context,
+            }),
+        })
     }
+}
+
+/// The main object of this library. Controls the whole display.
+pub struct Display {
+    context: Arc<DisplayImpl>
+}
+
+struct DisplayImpl {
+    context: context::Context,
 }
 
 impl Display {
     /// Reads all events received by the window.
     pub fn poll_events(&self) -> Vec<gl_init::Event> {
-        self.context.recv()
+        self.context.context.recv()
     }
 
     /// Call this function when you have finished drawing a frame.
     pub fn end_frame(&self) {
-        self.context.swap_buffers();
+        self.context.context.swap_buffers();
 
-        self.context.exec(proc(gl) {
+        self.context.context.exec(proc(gl) {
             gl.ClearColor(0.0, 0.0, 0.0, 1.0);
             gl.Clear(gl::COLOR_BUFFER_BIT);
         });
@@ -679,7 +687,7 @@ impl Display {
         let elements_size = { use std::mem; mem::size_of::<T>() };
         let buffer_size = data.len() * elements_size as uint;
 
-        let id = self.context.exec(proc(gl) {
+        let id = self.context.context.exec(proc(gl) {
             unsafe {
                 let mut id: gl::types::GLuint = std::mem::uninitialized();
                 gl.GenBuffers(1, &mut id);
@@ -712,7 +720,7 @@ impl Display {
         let dataSize = data.len() * elementsSize;
         let dataPtr: *const libc::c_void = data.as_ptr() as *const libc::c_void;
 
-        let id = self.context.exec(proc(gl) {
+        let id = self.context.context.exec(proc(gl) {
             unsafe {
                 let id: gl::types::GLuint = std::mem::uninitialized();
                 gl.GenBuffers(1, std::mem::transmute(&id));
@@ -737,7 +745,7 @@ impl Display {
     {
         let srcCode = sourceCode.to_string();
 
-        let idResult = self.context.exec(proc(gl) {
+        let idResult = self.context.context.exec(proc(gl) {
             unsafe {
                 let id = gl.CreateShader(stype);
 
@@ -800,7 +808,7 @@ impl Display {
             _ => fail!("unsupported texture type")
         };
 
-        let id = self.context.exec(proc(gl) {
+        let id = self.context.context.exec(proc(gl) {
             unsafe {
                 gl.PixelStorei(gl::UNPACK_ALIGNMENT, if width % 4 == 0 { 4 } else if height % 2 == 0 { 2 } else { 1 });
 
@@ -880,7 +888,7 @@ impl Display {
             shadersIDs.push(sh.id);
         }
 
-        let id = try!(self.context.exec(proc(gl) {
+        let id = try!(self.context.context.exec(proc(gl) {
             unsafe {
                 let id = gl.CreateProgram();
                 if id == 0 {
@@ -920,7 +928,7 @@ impl Display {
             }
         }).get());
 
-        let uniforms = self.context.exec(proc(gl) {
+        let uniforms = self.context.context.exec(proc(gl) {
             unsafe {
                 // reflecting program uniforms
                 let mut uniforms = HashMap::new();
@@ -972,7 +980,7 @@ impl Display {
         let programID = program.program.id.clone();
         let uniformsClone = program.clone();
 
-        self.context.exec(proc(gl) {
+        self.context.context.exec(proc(gl) {
             unsafe {
                 gl.Disable(gl::DEPTH_TEST);
                 gl.Enable(gl::BLEND);
