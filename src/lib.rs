@@ -308,6 +308,42 @@ impl Texture {
     pub fn get_array_size(&self) -> uint {
         self.texture.arraySize
     }
+
+    /// Reads the content of the texture.
+    ///
+    /// Same as `read_mipmap` with `level` as `0`.
+    // TODO: draft ; must be checked and turned public
+    fn read(&self) -> Vec<u8> {
+        self.read_mipmap(0)
+    }
+
+    /// Reads the content of one of the mipmaps the texture.
+    ///
+    /// Returns a 2D array of pixels.
+    /// Each pixel has R, G and B components between 0 and 255.
+    // TODO: draft ; must be checked and turned public
+    fn read_mipmap(&self, level: uint) -> Vec<u8> {
+        let bind_point = self.texture.bindPoint;
+        let id = self.texture.id;
+        let buffer_size = self.texture.width * self.texture.height * self.texture.depth *
+            self.texture.arraySize * 3;
+
+        if level != 0 {
+            unimplemented!()
+        }
+
+        self.texture.display.exec(proc(gl) {
+            let mut buffer = Vec::from_elem(buffer_size, 0u8);
+
+            unsafe {
+                gl.BindTexture(bind_point, id);
+                gl.GetTexImage(bind_point, 0 as gl::types::GLint, gl::RGBA_INTEGER, gl::UNSIGNED_BYTE,
+                    buffer.as_mut_ptr() as *mut libc::c_void);
+            }
+
+            buffer
+        }).get()
+    }
 }
 
 impl fmt::Show for Texture {
