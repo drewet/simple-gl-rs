@@ -46,7 +46,7 @@ fn main() {
 
     let display = gl_init::WindowBuilder::new().build_simple_gl().unwrap();
 
-    let program = display.build_program(VERTEX_SRC, FRAGMENT_SRC, None).unwrap();
+    let program = simple_gl::Program::new(&display, VERTEX_SRC, FRAGMENT_SRC, None).unwrap();
 
     let vb = simple_gl::VertexBuffer::new(&display, 
         vec![

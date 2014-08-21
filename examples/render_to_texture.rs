@@ -88,8 +88,8 @@ fn main() {
 
     let display = gl_init::WindowBuilder::new().build_simple_gl().unwrap();
 
-    let to_texture_program = display.build_program(TO_TEXTURE_VERTEX_SRC, TO_TEXTURE_FRAGMENT_SRC, None).unwrap();
-    let to_dest_program = display.build_program(TO_DEST_VERTEX_SRC, TO_DEST_FRAGMENT_SRC, None).unwrap();
+    let to_texture_program = simple_gl::Program::new(&display, TO_TEXTURE_VERTEX_SRC, TO_TEXTURE_FRAGMENT_SRC, None).unwrap();
+    let to_dest_program = simple_gl::Program::new(&display, TO_DEST_VERTEX_SRC, TO_DEST_FRAGMENT_SRC, None).unwrap();
 
     let to_texture_vertex_buffer = simple_gl::VertexBuffer::new(&display, 
         vec![

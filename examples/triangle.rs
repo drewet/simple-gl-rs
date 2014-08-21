@@ -38,7 +38,7 @@ fn main() {
         &[ 0u16, 1, 2 ]);
 
     // compiling shaders and linking them together
-    let program = display.build_program(
+    let program = simple_gl::Program::new(&display,
         // vertex shader
         "
             #version 110

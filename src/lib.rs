@@ -107,7 +107,7 @@ static FRAGMENT_SRC: &'static str = "
 ";
 
 # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-let program = display.build_program(VERTEX_SRC, FRAGMENT_SRC, None).unwrap();
+let program = simple_gl::Program::new(&display, VERTEX_SRC, FRAGMENT_SRC, None).unwrap();
 ```
 
 The `attribute`s or `in` variables in the vertex shader must match the names of the elements
@@ -522,6 +522,31 @@ pub struct Program {
 }
 
 impl Program {
+    /// Builds a new program.
+    ///
+    /// A program is a group of shaders linked together.
+    ///
+    /// # Parameters
+    ///
+    /// - `vertex_shader`: Source code of the vertex shader.
+    /// - `fragment_shader`: Source code of the fragment shader.
+    /// - `geometry_shader`: Source code of the geometry shader.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+    /// # let vertex_source = ""; let fragment_source = ""; let geometry_source = "";
+    /// let program = simple_gl::Program::new(&display, vertex_source, fragment_source, Some(geometry_source));
+    /// ```
+    /// 
+    #[experimental = "The list of shaders and the result error will probably change"]
+    pub fn new(display: &Display, vertex_shader: &str, fragment_shader: &str,
+               geometry_shader: Option<&str>) -> Result<Program, String>
+    {
+        display.build_program(vertex_shader, fragment_shader, geometry_shader)
+    }
+
     /// Creates a new `ProgramUniforms` object.
     ///
     /// A `ProgramUniforms` object is a link between a program and its uniforms values.
@@ -1005,24 +1030,8 @@ impl Display {
         }
     }
 
-    /// Builds a new program.
-    ///
-    /// A program is a group of shaders linked together.
-    ///
-    /// # Parameters
-    ///
-    /// - `vertex_shader`: Source code of the vertex shader.
-    /// - `fragment_shader`: Source code of the fragment shader.
-    /// - `geometry_shader`: Source code of the geometry shader.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-    /// # let vertex_source = ""; let fragment_source = ""; let geometry_source = "";
-    /// let program = display.build_program(vertex_source, fragment_source, Some(geometry_source));
-    /// ```
-    /// 
+    /// See `Program::new`
+    #[deprecated = "Use Program::new instead"]
     pub fn build_program(&self, vertex_shader: &str, fragment_shader: &str,
                          geometry_shader: Option<&str>) -> Result<Program, String>
     {
