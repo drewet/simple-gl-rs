@@ -605,6 +605,57 @@ pub struct VertexBuffer<T> {
     bindings: VertexBindings,
 }
 
+impl<T: VertexFormat + 'static + Send> VertexBuffer<T> {
+    /// Builds a new vertex buffer.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # #![feature(phase)]
+    /// # #[phase(plugin)]
+    /// # extern crate simple_gl_macros;
+    /// # extern crate simple_gl;
+    /// # fn main() {
+    /// #[vertex_format]
+    /// struct Vertex {
+    ///     position: [f32, ..3],
+    ///     texcoords: [f32, ..2],
+    /// }
+    ///
+    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
+    /// let vertex_buffer = display.build_vertex_buffer(vec![
+    ///     Vertex { position: [0.0,  0.0, 0.0], texcoords: [0.0, 1.0] },
+    ///     Vertex { position: [5.0, -3.0, 2.0], texcoords: [1.0, 0.0] },
+    /// ]);
+    /// # }
+    /// ```
+    /// 
+    pub fn new(display: &Display, data: Vec<T>) -> VertexBuffer<T> {
+        let bindings = VertexFormat::build_bindings(None::<T>);
+
+        let elements_size = { use std::mem; mem::size_of::<T>() };
+        let buffer_size = data.len() * elements_size as uint;
+
+        let id = display.context.context.exec(proc(gl) {
+            unsafe {
+                let mut id: gl::types::GLuint = std::mem::uninitialized();
+                gl.GenBuffers(1, &mut id);
+                gl.BindBuffer(gl::ARRAY_BUFFER, id);
+                gl.BufferData(gl::ARRAY_BUFFER, buffer_size as gl::types::GLsizeiptr,
+                    data.as_ptr() as *const libc::c_void, gl::STATIC_DRAW);
+                id
+            }
+        }).get();
+
+        VertexBuffer {
+            display: display.context.clone(),
+            id: id,
+            elements_size: elements_size,
+            bindings: bindings
+        }
+    }
+}
+
 impl<T> fmt::Show for VertexBuffer<T> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
         (format!("VertexBuffer #{}", self.id)).fmt(formatter)
@@ -765,54 +816,12 @@ impl Display {
         });
     }
 
-    /// Builds a new vertex buffer.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # #![feature(phase)]
-    /// # #[phase(plugin)]
-    /// # extern crate simple_gl_macros;
-    /// # extern crate simple_gl;
-    /// # fn main() {
-    /// #[vertex_format]
-    /// struct Vertex {
-    ///     position: [f32, ..3],
-    ///     texcoords: [f32, ..2],
-    /// }
-    ///
-    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-    /// let vertex_buffer = display.build_vertex_buffer(vec![
-    ///     Vertex { position: [0.0,  0.0, 0.0], texcoords: [0.0, 1.0] },
-    ///     Vertex { position: [5.0, -3.0, 2.0], texcoords: [1.0, 0.0] },
-    /// ]);
-    /// # }
-    /// ```
-    /// 
+    /// See `VertexBuffer::new`
+    #[deprecated = "Use VertexBuffer::new"]
     pub fn build_vertex_buffer<T: VertexFormat + 'static + Send>(&self, data: Vec<T>)
         -> VertexBuffer<T>
     {
-        let bindings = VertexFormat::build_bindings(None::<T>);
-
-        let elements_size = { use std::mem; mem::size_of::<T>() };
-        let buffer_size = data.len() * elements_size as uint;
-
-        let id = self.context.context.exec(proc(gl) {
-            unsafe {
-                let mut id: gl::types::GLuint = std::mem::uninitialized();
-                gl.GenBuffers(1, &mut id);
-                gl.BindBuffer(gl::ARRAY_BUFFER, id);
-                gl.BufferData(gl::ARRAY_BUFFER, buffer_size as gl::types::GLsizeiptr, data.as_ptr() as *const libc::c_void, gl::STATIC_DRAW);
-                id
-            }
-        }).get();
-
-        VertexBuffer {
-            display: self.context.clone(),
-            id: id,
-            elements_size: elements_size,
-            bindings: bindings
-        }
+        VertexBuffer::new(self, data)
     }
 
     /// Builds a new index buffer.

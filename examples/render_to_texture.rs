@@ -91,7 +91,7 @@ fn main() {
     let to_texture_program = display.build_program(TO_TEXTURE_VERTEX_SRC, TO_TEXTURE_FRAGMENT_SRC, None).unwrap();
     let to_dest_program = display.build_program(TO_DEST_VERTEX_SRC, TO_DEST_FRAGMENT_SRC, None).unwrap();
 
-    let to_texture_vertex_buffer = display.build_vertex_buffer(
+    let to_texture_vertex_buffer = simple_gl::VertexBuffer::new(&display, 
         vec![
             ToTextureVertex { iPosition: [-0.5, -0.5], iColor: [0.0, 1.0, 0.0] },
             ToTextureVertex { iPosition: [ 0.0,  0.5], iColor: [0.0, 0.0, 1.0] },
@@ -102,7 +102,7 @@ fn main() {
     let to_texture_index_buffer = display.build_index_buffer(simple_gl::TrianglesList,
         &[ 0u16, 1, 2 ]);
 
-    let to_dest_vertex_buffer = display.build_vertex_buffer(
+    let to_dest_vertex_buffer = simple_gl::VertexBuffer::new(&display, 
         vec![
             ToDestVertex { iPosition: [-1.0,  1.0], iTexCoords: [0.0, 1.0] },
             ToDestVertex { iPosition: [ 1.0,  1.0], iTexCoords: [1.0, 1.0] },

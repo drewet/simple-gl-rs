@@ -48,7 +48,7 @@ fn main() {
 
     let program = display.build_program(VERTEX_SRC, FRAGMENT_SRC, None).unwrap();
 
-    let vb = display.build_vertex_buffer(
+    let vb = simple_gl::VertexBuffer::new(&display, 
         vec![
             Vertex { iPosition: [-1.0, -1.0], iTexCoords: [0.0, 1.0] },
             Vertex { iPosition: [-1.0,  1.0], iTexCoords: [0.0, 0.0] },
