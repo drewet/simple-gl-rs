@@ -58,7 +58,7 @@ struct Vertex {
 }
 
 # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-let vertex_buffer = display.build_vertex_buffer(vec![
+let vertex_buffer = simple_gl::VertexBuffer::new(&display, vec![
     Vertex { iPosition: [-1.0, -1.0], iTexCoords: [0.0, 1.0] },
     Vertex { iPosition: [-1.0,  1.0], iTexCoords: [0.0, 0.0] },
     Vertex { iPosition: [ 1.0,  1.0], iTexCoords: [1.0, 0.0] },
@@ -132,15 +132,21 @@ uniforms.set_value("uMatrix", [
 
 ## Drawing
 
-Draw by calling `display.draw`. Once you are done drawing, call `display.end_frame()`.
+Draw by calling `display.draw()`. This function call will return a `Target` object which can
+be used to draw things.
+
+Buffers are cleared when the `Target` is created, and swapped when is it destroyed.
+
+Once you are done drawing, you can `target.finish()` or let it go out of the scope.
 
 ```no_run
 # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-# let vertex_buffer: simple_gl::VertexBuffer = unsafe { std::mem::uninitialized() };
+# let vertex_buffer: simple_gl::VertexBuffer<u8> = unsafe { std::mem::uninitialized() };
 # let index_buffer: simple_gl::IndexBuffer = unsafe { std::mem::uninitialized() };
 # let uniforms: simple_gl::ProgramUniforms = unsafe { std::mem::uninitialized() };
-display.draw(&vertex_buffer, &index_buffer, &uniforms);
-display.end_frame();
+let target = display.draw();
+target.draw(&vertex_buffer, &index_buffer, &uniforms);
+target.finish();
 ```
 
 */
@@ -641,7 +647,7 @@ impl<T: VertexFormat + 'static + Send> VertexBuffer<T> {
     /// }
     ///
     /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-    /// let vertex_buffer = display.build_vertex_buffer(vec![
+    /// let vertex_buffer = simple_gl::VertexBuffer::new(&display, vec![
     ///     Vertex { position: [0.0,  0.0, 0.0], texcoords: [0.0, 1.0] },
     ///     Vertex { position: [5.0, -3.0, 2.0], texcoords: [1.0, 0.0] },
     /// ]);
