@@ -1,4 +1,5 @@
 #![feature(phase)]
+#![feature(unsafe_destructor)]
 #![unstable]
 #![deny(missing_doc)]
 
@@ -492,20 +493,21 @@ impl ProgramUniforms {
 }
 
 /// A list of verices loaded in the graphics card's memory.
-pub struct VertexBuffer {
+pub struct VertexBuffer<T> {
     display: Arc<context::Context>,
     id: gl::types::GLuint,
     elements_size: uint,
     bindings: VertexBindings,
 }
 
-impl fmt::Show for VertexBuffer {
+impl<T> fmt::Show for VertexBuffer<T> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
         (format!("VertexBuffer #{}", self.id)).fmt(formatter)
     }
 }
 
-impl Drop for VertexBuffer {
+#[unsafe_destructor]
+impl<T> Drop for VertexBuffer<T> {
     fn drop(&mut self) {
         let id = self.id.clone();
         self.display.exec(proc(gl) {
@@ -670,7 +672,7 @@ impl Display {
     /// ```
     /// 
     pub fn build_vertex_buffer<T: VertexFormat + 'static + Send>(&self, data: Vec<T>)
-        -> VertexBuffer
+        -> VertexBuffer<T>
     {
         let bindings = VertexFormat::build_bindings(None::<T>);
 
@@ -957,8 +959,8 @@ impl Display {
     }
 
     /// Draws.
-    pub fn draw(&self, vertexBuffer: &VertexBuffer, indexBuffer: &IndexBuffer,
-                program: &ProgramUniforms)
+    pub fn draw<V>(&self, vertexBuffer: &VertexBuffer<V>, indexBuffer: &IndexBuffer,
+                   program: &ProgramUniforms)
     {
         let vbID = vertexBuffer.id.clone();
         let vbBindingsClone = vertexBuffer.bindings.clone();
