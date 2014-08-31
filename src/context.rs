@@ -41,7 +41,7 @@ impl Context {
                     if next_loop < now {
                         Duration::nanoseconds(0)
                     } else {
-                        Duration::nanoseconds((next_loop - now) as i32)
+                        Duration::nanoseconds((next_loop - now) as i64)
                     }
                 });
 

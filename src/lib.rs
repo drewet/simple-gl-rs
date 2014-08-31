@@ -405,7 +405,7 @@ pub struct Target<'t> {
     display_hold: Option<&'t Display>,
     texture: Option<&'t mut Texture>,
     framebuffer: Option<FrameBufferObject>,
-    execute_end: Option<proc(&DisplayImpl)>,
+    execute_end: Option<proc(&DisplayImpl):Send>,
 }
 
 impl<'t> Target<'t> {
