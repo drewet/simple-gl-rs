@@ -929,22 +929,27 @@ impl Display {
     }
 
     /// Builds an individual shader.
-    fn build_shader(&self, stype: gl::types::GLenum, source_code: &str)
+    fn build_shader<S: ToCStr>(&self, shader_type: gl::types::GLenum, source_code: S)
         -> Result<Arc<ShaderImpl>, String>
     {
-        let src_code = source_code.to_string();
+        let source_code = source_code.to_c_str();
 
         let id_result = self.context.context.exec(proc(gl) {
             unsafe {
-                let id = gl.CreateShader(stype);
+                let id = gl.CreateShader(shader_type);
 
-                gl.ShaderSource(id, 1, [ src_code.to_c_str().unwrap() ].as_ptr(), std::ptr::null());
+                gl.ShaderSource(id, 1, [ source_code.as_ptr() ].as_ptr(), std::ptr::null());
                 gl.CompileShader(id);
 
-                let mut compilation_success: gl::types::GLint = std::mem::uninitialized();
-                gl.GetShaderiv(id, gl::COMPILE_STATUS, &mut compilation_success);
+                // checking compilation success
+                let compilation_success = {
+                    let mut compilation_success: gl::types::GLint = std::mem::uninitialized();
+                    gl.GetShaderiv(id, gl::COMPILE_STATUS, &mut compilation_success);
+                    compilation_success
+                };
 
                 if compilation_success == 0 {
+                    // compilation error
                     let mut error_log_size: gl::types::GLint = std::mem::uninitialized();
                     gl.GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut error_log_size);
 
