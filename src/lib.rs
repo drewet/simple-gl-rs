@@ -43,7 +43,7 @@ Drawing something requires three elements:
 ## Vertex buffer
 
 To create a vertex buffer, you must create a struct and add the `#[vertex_format]` attribute to
-it. Then simply call `build_vertex_buffer` with a `Vec` of this type.
+it. Then simply call `VertexBuffer::new` with a `Vec` of this type.
 
 ```no_run
 # #![feature(phase)]
@@ -52,6 +52,7 @@ it. Then simply call `build_vertex_buffer` with a `Vec` of this type.
 # extern crate simple_gl;
 # fn main() {
 #[vertex_format]
+#[allow(non_snake_case)]
 struct Vertex {
     iPosition: [f32, ..2],
     iTexCoords: [f32, ..2],
