@@ -845,9 +845,25 @@ impl DisplayBuild for gl_init::WindowBuilder {
     fn build_simple_gl(self) -> Result<Display, ()> {
         let window = try!(self.build().map_err(|_| ()));
         let context = context::Context::new(window);
+
+        let gl_version = context.exec(proc(gl) {
+            unsafe {
+                use std::mem;
+
+                let mut major_version: gl::types::GLint = mem::uninitialized();
+                let mut minor_version: gl::types::GLint = mem::uninitialized();
+
+                gl.GetIntegerv(gl::MAJOR_VERSION, &mut major_version);
+                gl.GetIntegerv(gl::MINOR_VERSION, &mut minor_version);
+
+                (major_version, minor_version)
+            }
+        }).get();
+
         Ok(Display {
             context: Arc::new(DisplayImpl {
                 context: context,
+                gl_version: gl_version,
             }),
         })
     }
@@ -860,6 +876,7 @@ pub struct Display {
 
 struct DisplayImpl {
     context: context::Context,
+    gl_version: (gl::types::GLint, gl::types::GLint),
 }
 
 impl Display {
