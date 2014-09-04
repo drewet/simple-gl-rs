@@ -428,16 +428,16 @@ impl<'t> Target<'t> {
 
 impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramUniforms) {
     fn draw(&self, target: &mut Target) {
-        let &(vertexBuffer, indexBuffer, program) = self;
+        let &(vertex_buffer, index_buffer, program) = self;
 
         let fbo_id = target.framebuffer.as_ref().map(|f| f.id);
-        let vb_id = vertexBuffer.id.clone();
-        let vb_bindingsclone = vertexBuffer.bindings.clone();
-        let vb_elementssize = vertexBuffer.elements_size.clone();
-        let ib_id = indexBuffer.id.clone();
-        let ib_primitives = indexBuffer.primitives.clone();
-        let ib_elemcounts = indexBuffer.elements_count.clone();
-        let ib_datatype = indexBuffer.data_type.clone();
+        let vb_id = vertex_buffer.id.clone();
+        let vb_bindingsclone = vertex_buffer.bindings.clone();
+        let vb_elementssize = vertex_buffer.elements_size.clone();
+        let ib_id = index_buffer.id.clone();
+        let ib_primitives = index_buffer.primitives.clone();
+        let ib_elemcounts = index_buffer.elements_count.clone();
+        let ib_datatype = index_buffer.data_type.clone();
         let program_id = program.program.id.clone();
         let uniforms_clone = program.clone();
 
@@ -454,12 +454,12 @@ impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramU
 
                 // binding program uniforms
                 {
-                    let mut activeTexture: uint = 0;
+                    let mut active_texture: uint = 0;
                     for (&location, ref texture) in uniforms_clone.textures.iter() {
-                        gl.ActiveTexture(gl::TEXTURE0 + activeTexture as u32);
+                        gl.ActiveTexture(gl::TEXTURE0 + active_texture as u32);
                         gl.BindTexture(texture.bind_point, texture.id);
-                        gl.Uniform1i(location, activeTexture as i32);
-                        activeTexture = activeTexture + 1;
+                        gl.Uniform1i(location, active_texture as i32);
+                        active_texture = active_texture + 1;
                     }
 
                     for (&location, &(ref datatype, ref data)) in uniforms_clone.values.iter() {
@@ -468,7 +468,7 @@ impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramU
                             gl::FLOAT_MAT4  => gl.UniformMatrix4fv(location, 1, 0, data.as_ptr() as *const f32),
                             _ => fail!("Loading uniforms for this type not implemented")
                         }
-                        //gl.Uniform1i(location, activeTexture as i32);
+                        //gl.Uniform1i(location, active_texture as i32);
                     }
                 }
 
@@ -478,15 +478,15 @@ impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramU
 
                 // binding vertex buffer
                 let mut locations = Vec::new();
-                for (name, &(data_type, data_size, dataOffset)) in vb_bindingsclone.iter() {
+                for (name, &(data_type, data_size, data_offset)) in vb_bindingsclone.iter() {
                     let loc = gl.GetAttribLocation(program_id, name.to_c_str().unwrap());
                     locations.push(loc);
 
                     if loc != -1 {
                         match data_type {
                             gl::BYTE | gl::UNSIGNED_BYTE | gl::SHORT | gl::UNSIGNED_SHORT | gl::INT | gl::UNSIGNED_INT
-                                => gl.VertexAttribIPointer(loc as u32, data_size, data_type, vb_elementssize as i32, dataOffset as *const libc::c_void),
-                            _ => gl.VertexAttribPointer(loc as u32, data_size, data_type, 0, vb_elementssize as i32, dataOffset as *const libc::c_void)
+                                => gl.VertexAttribIPointer(loc as u32, data_size, data_type, vb_elementssize as i32, data_offset as *const libc::c_void),
+                            _ => gl.VertexAttribPointer(loc as u32, data_size, data_type, 0, vb_elementssize as i32, data_offset as *const libc::c_void)
                         }
                         
                         gl.EnableVertexAttribArray(loc as u32);
@@ -618,8 +618,8 @@ impl ProgramUniforms {
         let mut data: Vec<char> = Vec::with_capacity(std::mem::size_of_val(&value));
         unsafe { data.set_len(std::mem::size_of_val(&value)); }
 
-        let dataInside = data.as_mut_ptr() as *mut T;
-        unsafe { (*dataInside) = value; }
+        let data_inside = data.as_mut_ptr() as *mut T;
+        unsafe { (*data_inside) = value; }
 
         self.values.insert(location.clone(), (gltype, data));
     }
@@ -905,8 +905,8 @@ impl Display {
     /// ```
     /// 
     pub fn build_index_buffer<T: data_types::GLDataType>(&self, prim: PrimitiveType, data: &[T]) -> IndexBuffer {
-        let elementsSize = std::mem::size_of_val(&data[0]);
-        let data_size = data.len() * elementsSize;
+        let elements_size = std::mem::size_of_val(&data[0]);
+        let data_size = data.len() * elements_size;
         let data_ptr: *const libc::c_void = data.as_ptr() as *const libc::c_void;
 
         let id = self.context.context.exec(proc(gl) {
@@ -932,13 +932,13 @@ impl Display {
     fn build_shader(&self, stype: gl::types::GLenum, source_code: &str)
         -> Result<Arc<ShaderImpl>, String>
     {
-        let srcCode = source_code.to_string();
+        let src_code = source_code.to_string();
 
-        let idResult = self.context.context.exec(proc(gl) {
+        let id_result = self.context.context.exec(proc(gl) {
             unsafe {
                 let id = gl.CreateShader(stype);
 
-                gl.ShaderSource(id, 1, [ srcCode.to_c_str().unwrap() ].as_ptr(), std::ptr::null());
+                gl.ShaderSource(id, 1, [ src_code.to_c_str().unwrap() ].as_ptr(), std::ptr::null());
                 gl.CompileShader(id);
 
                 let mut compilation_success: gl::types::GLint = std::mem::uninitialized();
@@ -960,7 +960,7 @@ impl Display {
             }
         }).get();
 
-        idResult.map(|id| {
+        id_result.map(|id| {
             Arc::new(ShaderImpl {
                 display: self.context.clone(),
                 id: id
@@ -1106,22 +1106,22 @@ impl Display {
                 // reflecting program uniforms
                 let mut uniforms = HashMap::new();
 
-                let mut activeUniforms: gl::types::GLint = std::mem::uninitialized();
-                gl.GetProgramiv(id, gl::ACTIVE_UNIFORMS, &mut activeUniforms);
+                let mut active_uniforms: gl::types::GLint = std::mem::uninitialized();
+                gl.GetProgramiv(id, gl::ACTIVE_UNIFORMS, &mut active_uniforms);
 
-                for uniformID in range(0, activeUniforms) {
+                for uniform_id in range(0, active_uniforms) {
                     let mut uniform_name_tmp: Vec<u8> = Vec::with_capacity(64);
                     let mut uniform_name_tmp_len = 63;
 
                     let mut data_type: gl::types::GLenum = std::mem::uninitialized();
                     let mut data_size: gl::types::GLint = std::mem::uninitialized();
-                    gl.GetActiveUniform(id, uniformID as gl::types::GLuint, uniform_name_tmp_len, &mut uniform_name_tmp_len, &mut data_size, &mut data_type, uniform_name_tmp.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
+                    gl.GetActiveUniform(id, uniform_id as gl::types::GLuint, uniform_name_tmp_len, &mut uniform_name_tmp_len, &mut data_size, &mut data_type, uniform_name_tmp.as_mut_slice().as_mut_ptr() as *mut gl::types::GLchar);
                     uniform_name_tmp.set_len(uniform_name_tmp_len as uint);
 
-                    let uniformName = String::from_utf8(uniform_name_tmp).unwrap();
-                    let location = gl.GetUniformLocation(id, uniformName.to_c_str().unwrap());
+                    let uniform_name = String::from_utf8(uniform_name_tmp).unwrap();
+                    let location = gl.GetUniformLocation(id, uniform_name.to_c_str().unwrap());
 
-                    uniforms.insert(uniformName, (location, data_type, data_size));
+                    uniforms.insert(uniform_name, (location, data_type, data_size));
                 }
 
                 Arc::new(uniforms)
