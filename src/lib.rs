@@ -144,8 +144,8 @@ Once you are done drawing, you can `target.finish()` or let it go out of the sco
 # let vertex_buffer: simple_gl::VertexBuffer<u8> = unsafe { std::mem::uninitialized() };
 # let index_buffer: simple_gl::IndexBuffer = unsafe { std::mem::uninitialized() };
 # let uniforms: simple_gl::ProgramUniforms = unsafe { std::mem::uninitialized() };
-let target = display.draw();
-target.draw(&vertex_buffer, &index_buffer, &uniforms);
+let mut target = display.draw();
+target.draw(&(&vertex_buffer, &index_buffer, &uniforms));
 target.finish();
 ```
 
@@ -171,6 +171,12 @@ mod data_types;
 
 mod gl {
     generate_gl_bindings!("gl", "core", "3.3", "struct")
+}
+
+/// Something that can be drawn.
+trait Draw {
+    /// Draws the object on the specified target.
+    fn draw(&self, &mut Target);
 }
 
 /// Types of primitives.
@@ -414,10 +420,16 @@ impl<'t> Target<'t> {
     }
 
     /// Draws.
-    pub fn draw<V>(&self, vertexBuffer: &VertexBuffer<V>, indexBuffer: &IndexBuffer,
-                   program: &ProgramUniforms)
-    {
-        let fbo_id = self.framebuffer.as_ref().map(|f| f.id);
+    pub fn draw<D: Draw>(&mut self, object: &D) {
+        object.draw(self);
+    }
+}
+
+impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramUniforms) {
+    fn draw(&self, target: &mut Target) {
+        let &(vertexBuffer, indexBuffer, program) = self;
+
+        let fbo_id = target.framebuffer.as_ref().map(|f| f.id);
         let vb_id = vertexBuffer.id.clone();
         let vb_bindingsclone = vertexBuffer.bindings.clone();
         let vb_elementssize = vertexBuffer.elements_size.clone();
@@ -428,7 +440,7 @@ impl<'t> Target<'t> {
         let program_id = program.program.id.clone();
         let uniforms_clone = program.clone();
 
-        self.display.context.exec(proc(gl) {
+        target.display.context.exec(proc(gl) {
             unsafe {
                 gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fbo_id.unwrap_or(0));
 

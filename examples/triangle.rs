@@ -86,8 +86,8 @@ fn main() {
         use std::time::Duration;
 
         // drawing a frame
-        let target = display.draw();
-        target.draw(&vertex_buffer, &index_buffer, &program);
+        let mut target = display.draw();
+        target.draw(&(&vertex_buffer, &index_buffer, &program));
         target.finish();
 
         // sleeping for some time in order not to use up too much CPU
