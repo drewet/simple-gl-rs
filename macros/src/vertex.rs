@@ -1,17 +1,17 @@
 use std::fmt;
 use std::from_str::FromStr;
-use std::gc::Gc;
 use syntax::ast;
 use syntax::ext::base;
 use syntax::ext::build::AstBuilder;
 use syntax::ext::deriving::generic;
 use syntax::{attr, codemap};
 use syntax::parse::token;
+use syntax::ptr::P;
 
 /// Expand #[vertex_format]
 pub fn expand(ecx: &mut base::ExtCtxt, span: codemap::Span,
-              meta_item: Gc<ast::MetaItem>, item: Gc<ast::Item>,
-              push: |Gc<ast::Item>|)
+              meta_item: &ast::MetaItem, item: &ast::Item,
+              push: |P<ast::Item>|)
 {
     generic::TraitDef {
         span: span,
@@ -56,7 +56,7 @@ pub fn expand(ecx: &mut base::ExtCtxt, span: codemap::Span,
 }
 
 fn body(ecx: &mut base::ExtCtxt, span: codemap::Span,
-        substr: &generic::Substructure) -> Gc<ast::Expr>
+        substr: &generic::Substructure) -> P<ast::Expr>
 {
     let ecx: &base::ExtCtxt = ecx;
 
@@ -64,7 +64,7 @@ fn body(ecx: &mut base::ExtCtxt, span: codemap::Span,
         &generic::StaticStruct(ref definition, generic::Named(ref fields)) => {
             let content = definition.fields.iter().zip(fields.iter())
                 .map(|(def, &(ident, _))| {
-                    let elem_type = def.node.ty;
+                    let ref elem_type = def.node.ty;
                     let ident_str = token::get_ident(ident);
                     let ident_str = ident_str.get();
 
@@ -78,7 +78,7 @@ fn body(ecx: &mut base::ExtCtxt, span: codemap::Span,
                         offset_sum += mem::size_of::<$elem_type>();
                     })
 
-                }).collect::<Vec<Gc<ast::Expr>>>();
+                }).collect::<Vec<P<ast::Expr>>>();
 
             quote_expr!(ecx, {
                 use simple_gl::GLDataTuple;
