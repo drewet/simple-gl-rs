@@ -1080,6 +1080,22 @@ impl Display {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    #[cfg(target_os = "linux")]
+    #[cfg(target_os = "macos")]
+    fn build_geometry_shader<S: ToCStr>(&self, source_code: S)
+        -> Result<Arc<ShaderImpl>, String>
+    {
+        self.build_shader(gl::GEOMETRY_SHADER, source_code)
+    }
+    
+    #[cfg(target_os = "android")]
+    fn build_geometry_shader<S: ToCStr>(&self, source_code: S)
+        -> Result<Arc<ShaderImpl>, String>
+    {
+        Err("Geometry shaders are not supported on this platform")
+    }
+
     /// See `Program::new`
     #[deprecated = "Use Program::new instead"]
     pub fn build_program(&self, vertex_shader: &str, fragment_shader: &str,
@@ -1088,7 +1104,7 @@ impl Display {
         let mut shaders_store = Vec::new();
         shaders_store.push(try!(self.build_shader(gl::VERTEX_SHADER, vertex_shader)));
         match geometry_shader {
-            Some(gs) => shaders_store.push(try!(self.build_shader(gl::GEOMETRY_SHADER, gs))),
+            Some(gs) => shaders_store.push(try!(self.build_geometry_shader(gs))),
             None => ()
         }
         shaders_store.push(try!(self.build_shader(gl::FRAGMENT_SHADER, fragment_shader)));
