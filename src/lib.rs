@@ -197,7 +197,7 @@ mod gl {
 compile_error!("This platform is not supported")
 
 /// Something that can be drawn.
-trait Draw {
+pub trait Draw {
     /// Draws the object on the specified target.
     fn draw(&self, &mut Target);
 }
