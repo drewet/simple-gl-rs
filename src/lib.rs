@@ -166,12 +166,15 @@ extern crate time;
 #[doc(hidden)]
 pub use data_types::GLDataTuple;
 
+pub use vertex_buffer::{VertexBuffer, VertexBindings, VertexFormat};
+
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
 mod context;
 mod data_types;
+mod vertex_buffer;
 
 #[cfg(target_os = "windows")]
 #[cfg(target_os = "linux")]
@@ -446,9 +449,7 @@ impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramU
         let &(vertex_buffer, index_buffer, program) = self;
 
         let fbo_id = target.framebuffer.as_ref().map(|f| f.id);
-        let vb_id = vertex_buffer.id.clone();
-        let vb_bindingsclone = vertex_buffer.bindings.clone();
-        let vb_elementssize = vertex_buffer.elements_size.clone();
+        let (vb_id, vb_elementssize, vb_bindingsclone) = vertex_buffer::get_clone(vertex_buffer);
         let ib_id = index_buffer.id.clone();
         let ib_primitives = index_buffer.primitives.clone();
         let ib_elemcounts = index_buffer.elements_count.clone();
@@ -674,81 +675,6 @@ impl ProgramUniforms {
     }
 }
 
-/// A list of verices loaded in the graphics card's memory.
-pub struct VertexBuffer<T> {
-    display: Arc<DisplayImpl>,
-    id: gl::types::GLuint,
-    elements_size: uint,
-    bindings: VertexBindings,
-}
-
-impl<T: VertexFormat + 'static + Send> VertexBuffer<T> {
-    /// Builds a new vertex buffer.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # #![feature(phase)]
-    /// # #[phase(plugin)]
-    /// # extern crate simple_gl_macros;
-    /// # extern crate simple_gl;
-    /// # fn main() {
-    /// #[vertex_format]
-    /// struct Vertex {
-    ///     position: [f32, ..3],
-    ///     texcoords: [f32, ..2],
-    /// }
-    ///
-    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-    /// let vertex_buffer = simple_gl::VertexBuffer::new(&display, vec![
-    ///     Vertex { position: [0.0,  0.0, 0.0], texcoords: [0.0, 1.0] },
-    ///     Vertex { position: [5.0, -3.0, 2.0], texcoords: [1.0, 0.0] },
-    /// ]);
-    /// # }
-    /// ```
-    /// 
-    pub fn new(display: &Display, data: Vec<T>) -> VertexBuffer<T> {
-        let bindings = VertexFormat::build_bindings(None::<T>);
-
-        let elements_size = { use std::mem; mem::size_of::<T>() };
-        let buffer_size = data.len() * elements_size as uint;
-
-        let id = display.context.context.exec(proc(gl) {
-            unsafe {
-                let mut id: gl::types::GLuint = std::mem::uninitialized();
-                gl.GenBuffers(1, &mut id);
-                gl.BindBuffer(gl::ARRAY_BUFFER, id);
-                gl.BufferData(gl::ARRAY_BUFFER, buffer_size as gl::types::GLsizeiptr,
-                    data.as_ptr() as *const libc::c_void, gl::STATIC_DRAW);
-                id
-            }
-        }).get();
-
-        VertexBuffer {
-            display: display.context.clone(),
-            id: id,
-            elements_size: elements_size,
-            bindings: bindings
-        }
-    }
-}
-
-impl<T> fmt::Show for VertexBuffer<T> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
-        (format!("VertexBuffer #{}", self.id)).fmt(formatter)
-    }
-}
-
-#[unsafe_destructor]
-impl<T> Drop for VertexBuffer<T> {
-    fn drop(&mut self) {
-        let id = self.id.clone();
-        self.display.context.exec(proc(gl) {
-            unsafe { gl.DeleteBuffers(1, [ id ].as_ptr()); }
-        });
-    }
-}
-
 /// A list of indices loaded in the graphics card's memory.
 pub struct IndexBuffer {
     display: Arc<DisplayImpl>,
@@ -837,17 +763,6 @@ impl Drop for RenderBuffer {
             unsafe { gl.DeleteRenderbuffers(1, [ id ].as_ptr()); }
         });
     }
-}
-
-/// For each binding, the data type, number of elements, and offset.
-/// Includes the total size.
-#[doc(hidden)]
-pub type VertexBindings = HashMap<String, (gl::types::GLenum, gl::types::GLint, uint)>;
-
-/// Trait for structures that represent a vertex.
-#[doc(hidden)]
-pub trait VertexFormat: Copy {
-    fn build_bindings(Option<Self>) -> VertexBindings;
 }
 
 /// Objects that can build a `Display` object.
