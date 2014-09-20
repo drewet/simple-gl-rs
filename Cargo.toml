@@ -14,6 +14,3 @@ git = "http://github.com/tomaka/gl-init-rs"
 
 [dependencies.simple_gl_macros]
 path = "macros"
-
-[dev-dependencies.image]
-git = "https://github.com/PistonDevelopers/rust-image"
