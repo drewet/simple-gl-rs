@@ -1,4 +1,5 @@
 # simple-gl
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/tomaka/simple-gl-rs?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 **simple-gl** is a simple OpenGL wrapper in Rust that you can use if you want things to *just work*.
 
