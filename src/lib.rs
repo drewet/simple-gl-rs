@@ -153,6 +153,9 @@ target.finish();
 */
 
 #[phase(plugin)]
+extern crate compile_msg;
+
+#[phase(plugin)]
 extern crate gl_generator;
 
 extern crate gl_init;
@@ -170,9 +173,21 @@ use std::sync::Arc;
 mod context;
 mod data_types;
 
+#[cfg(target_os = "windows")]
+#[cfg(target_os = "linux")]
+#[cfg(target_os = "macos")]
 mod gl {
     generate_gl_bindings!("gl", "core", "3.3", "struct")
 }
+
+#[cfg(target_os = "android")]
+mod gl {
+    pub type Gl = Gles2;
+    generate_gl_bindings!("gles2", "core", "2.0", "struct")
+}
+
+#[cfg(not(target_os = "windows"), not(target_os = "linux"), not(target_os = "macos"), not(target_os = "android"))]
+compile_error!("This platform is not supported")
 
 /// Something that can be drawn.
 trait Draw {

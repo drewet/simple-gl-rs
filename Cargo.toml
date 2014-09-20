@@ -3,6 +3,9 @@ name = "simple_gl"
 version = "0.0.1"
 authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>"]
 
+[dependencies.compile_msg]
+git = "https://github.com/huonw/compile_msg"
+
 [dependencies.gl_generator]
 git = "http://github.com/bjz/gl-rs"
 
