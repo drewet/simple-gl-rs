@@ -75,7 +75,7 @@ the indices from the vertex buffer.
 
 ```no_run
 # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-let index_buffer = display.build_index_buffer(simple_gl::TrianglesList,
+let index_buffer = simple_gl::IndexBuffer::new(&display, simple_gl::TrianglesList,
     &[0u8, 1, 2, 0, 2, 3]);
 ```
 
@@ -166,6 +166,7 @@ extern crate time;
 #[doc(hidden)]
 pub use data_types::GLDataTuple;
 
+pub use index_buffer::IndexBuffer;
 pub use vertex_buffer::{VertexBuffer, VertexBindings, VertexFormat};
 
 use std::collections::HashMap;
@@ -174,6 +175,7 @@ use std::sync::Arc;
 
 mod context;
 mod data_types;
+mod index_buffer;
 mod vertex_buffer;
 
 #[cfg(target_os = "windows")]
@@ -450,10 +452,7 @@ impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramU
 
         let fbo_id = target.framebuffer.as_ref().map(|f| f.id);
         let (vb_id, vb_elementssize, vb_bindingsclone) = vertex_buffer::get_clone(vertex_buffer);
-        let ib_id = index_buffer.id.clone();
-        let ib_primitives = index_buffer.primitives.clone();
-        let ib_elemcounts = index_buffer.elements_count.clone();
-        let ib_datatype = index_buffer.data_type.clone();
+        let (ib_id, ib_elemcounts, ib_datatype, ib_primitives) = index_buffer::get_clone(index_buffer);
         let program_id = program.program.id.clone();
         let uniforms_clone = program.clone();
 
@@ -675,30 +674,6 @@ impl ProgramUniforms {
     }
 }
 
-/// A list of indices loaded in the graphics card's memory.
-pub struct IndexBuffer {
-    display: Arc<DisplayImpl>,
-    id: gl::types::GLuint,
-    elements_count: uint,
-    data_type: gl::types::GLenum,
-    primitives: gl::types::GLenum
-}
-
-impl fmt::Show for IndexBuffer {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
-        (format!("IndexBuffer #{} (elements: {})", self.id, self.elements_count)).fmt(formatter)
-    }
-}
-
-impl Drop for IndexBuffer {
-    fn drop(&mut self) {
-        let id = self.id.clone();
-        self.display.context.exec(proc(gl) {
-            unsafe { gl.DeleteBuffers(1, [ id ].as_ptr()); }
-        });
-    }
-}
-
 /// Frame buffer.
 struct FrameBufferObject {
     display: Arc<DisplayImpl>,
@@ -841,38 +816,10 @@ impl Display {
         VertexBuffer::new(self, data)
     }
 
-    /// Builds a new index buffer.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # let display: simple_gl::Display = unsafe { std::mem::uninitialized() };
-    /// let index_buffer = display.build_index_buffer(simple_gl::TrianglesList,
-    ///     &[0u8, 1, 2, 1, 3, 4, 2, 4, 3]);
-    /// ```
-    /// 
+    /// See `IndexBuffer::new`
+    #[deprecated = "Use IndexBuffer::new"]
     pub fn build_index_buffer<T: data_types::GLDataType>(&self, prim: PrimitiveType, data: &[T]) -> IndexBuffer {
-        let elements_size = std::mem::size_of_val(&data[0]);
-        let data_size = data.len() * elements_size;
-        let data_ptr: *const libc::c_void = data.as_ptr() as *const libc::c_void;
-
-        let id = self.context.context.exec(proc(gl) {
-            unsafe {
-                let id: gl::types::GLuint = std::mem::uninitialized();
-                gl.GenBuffers(1, std::mem::transmute(&id));
-                gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, id);
-                gl.BufferData(gl::ELEMENT_ARRAY_BUFFER, data_size as gl::types::GLsizeiptr, data_ptr, gl::STATIC_DRAW);
-                id
-            }
-        }).get();
-
-        IndexBuffer {
-            display: self.context.clone(),
-            id: id,
-            elements_count: data.len(),
-            data_type: data_types::GLDataType::get_gl_type(None::<T>),
-            primitives: prim.get_gl_enum()
-        }
+        IndexBuffer::new(self, prim, data)
     }
 
     /// Builds an individual shader.
