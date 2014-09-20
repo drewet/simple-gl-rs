@@ -37,6 +37,7 @@ impl GLDataType for f32 {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 impl GLDataType for f64 {
     fn get_gl_type(_: Option<f64>) -> gl::types::GLenum {
         gl::DOUBLE
@@ -129,6 +130,7 @@ impl UniformValue for f32 {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 impl UniformValue for f64 {
     fn get_gl_type(_: Option<f64>) -> gl::types::GLenum {
         gl::DOUBLE

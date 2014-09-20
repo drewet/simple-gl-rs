@@ -189,7 +189,7 @@ mod gl {
 
 #[cfg(target_os = "android")]
 mod gl {
-    pub type Gl = Gles2;
+    pub use self::Gles2 as Gl;
     generate_gl_bindings!("gles2", "core", "2.0", "struct")
 }
 
@@ -219,6 +219,9 @@ pub enum PrimitiveType {
 }
 
 impl PrimitiveType {
+    #[cfg(target_os = "windows")]
+    #[cfg(target_os = "linux")]
+    #[cfg(target_os = "macos")]
     fn get_gl_enum(&self) -> gl::types::GLenum {
         match *self {
             PointsList => gl::POINTS,
@@ -231,6 +234,19 @@ impl PrimitiveType {
             TriangleStrip => gl::TRIANGLE_STRIP,
             TriangleStripAdjacency => gl::TRIANGLE_STRIP_ADJACENCY,
             TriangleFan => gl::TRIANGLE_FAN
+        }
+    }
+
+    #[cfg(target_os = "android")]
+    fn get_gl_enum(&self) -> gl::types::GLenum {
+        match *self {
+            PointsList => gl::POINTS,
+            LinesList => gl::LINES,
+            LineStrip => gl::LINE_STRIP,
+            TrianglesList => gl::TRIANGLES,
+            TriangleStrip => gl::TRIANGLE_STRIP,
+            TriangleFan => gl::TRIANGLE_FAN,
+            _ => fail!("Not supported by GLES")
         }
     }
 }
@@ -346,7 +362,7 @@ impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramU
 
         target.display.context.exec(proc(gl) {
             unsafe {
-                gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fbo_id.unwrap_or(0));
+                gl.BindFramebuffer(gl::FRAMEBUFFER, fbo_id.unwrap_or(0));
 
                 gl.Disable(gl::DEPTH_TEST);
                 gl.Enable(gl::BLEND);
@@ -388,7 +404,7 @@ impl<'a, 'b, 'c, V> Draw for (&'a VertexBuffer<V>, &'b IndexBuffer, &'c ProgramU
                     if loc != -1 {
                         match data_type {
                             gl::BYTE | gl::UNSIGNED_BYTE | gl::SHORT | gl::UNSIGNED_SHORT | gl::INT | gl::UNSIGNED_INT
-                                => gl.VertexAttribIPointer(loc as u32, data_size, data_type, vb_elementssize as i32, data_offset as *const libc::c_void),
+                                => fail!("Not supported"), // TODO: gl.VertexAttribIPointer(loc as u32, data_size, data_type, vb_elementssize as i32, data_offset as *const libc::c_void),
                             _ => gl.VertexAttribPointer(loc as u32, data_size, data_type, 0, vb_elementssize as i32, data_offset as *const libc::c_void)
                         }
                         
@@ -538,7 +554,8 @@ impl ProgramUniforms {
             None => return      // the uniform is not used, we ignore it
         };
 
-        match gltype {
+        // TODO: fix the check for GLES
+        /*match gltype {
             gl::SAMPLER_1D | gl::SAMPLER_2D | gl::SAMPLER_3D | gl::SAMPLER_CUBE |
             gl::SAMPLER_1D_SHADOW | gl::SAMPLER_2D_SHADOW | gl::SAMPLER_1D_ARRAY |
             gl::SAMPLER_2D_ARRAY | gl::SAMPLER_1D_ARRAY_SHADOW | gl::SAMPLER_2D_ARRAY_SHADOW |
@@ -556,7 +573,7 @@ impl ProgramUniforms {
             gl::UNSIGNED_INT_SAMPLER_2D_RECT
                 => (),
             _ => fail!("Trying to bind a texture to a non-texture uniform")
-        };
+        };*/
 
         self.textures.insert(location.clone(), texture::get_impl(texture).clone());
     }
@@ -640,7 +657,9 @@ impl DisplayBuild for gl_init::WindowBuilder {
         let context = context::Context::new(window);
 
         let gl_version = context.exec(proc(gl) {
-            unsafe {
+            // TODO: not supported by GLES
+            (0, 0)
+            /*unsafe {
                 use std::mem;
 
                 let mut major_version: gl::types::GLint = mem::uninitialized();
@@ -650,7 +669,7 @@ impl DisplayBuild for gl_init::WindowBuilder {
                 gl.GetIntegerv(gl::MINOR_VERSION, &mut minor_version);
 
                 (major_version, minor_version)
-            }
+            }*/
         }).get();
 
         Ok(Display {
@@ -775,7 +794,7 @@ impl Display {
     fn build_geometry_shader<S: ToCStr>(&self, source_code: S)
         -> Result<Arc<ShaderImpl>, String>
     {
-        Err("Geometry shaders are not supported on this platform")
+        Err(format!("Geometry shaders are not supported on this platform"))
     }
 
     /// See `Program::new`

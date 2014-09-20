@@ -16,6 +16,9 @@ pub fn get_impl<'a>(texture: &'a Texture) -> &'a Arc<TextureImpl> {
 
 impl Texture {
     /// Builds a new texture.
+    #[cfg(target_os = "windows")]
+    #[cfg(target_os = "linux")]
+    #[cfg(target_os = "macos")]
     pub fn new<T: data_types::GLDataTuple>(display: &super::Display, data: &[T], width: uint, height: uint, depth: uint, array_size: uint)
         -> Texture
     {
@@ -90,6 +93,65 @@ impl Texture {
         }
     }
 
+    /// Builds a new texture.
+    #[cfg(target_os = "android")]
+    pub fn new<T: data_types::GLDataTuple>(display: &super::Display, data: &[T], width: uint, height: uint, depth: uint, array_size: uint)
+        -> Texture
+    {
+        let element_components = data_types::GLDataTuple::get_num_elems(None::<T>);
+
+        if depth != 1 || array_size != 1 {
+            fail!("GLES does not support 3D textures or texture arrays")
+        }
+
+        if width * height * depth * array_size != data.len() {
+            fail!("Texture data has different size from width*height*depth*array_size*elemLen");
+        }
+
+        let data_type = data_types::GLDataTuple::get_gl_type(None::<T>);
+        let data_raw: *const libc::c_void = unsafe { mem::transmute(data.as_ptr()) };
+
+        let (data_format, data_type) = match (element_components, data_type) {
+            (3, f) => (gl::RGB, f),
+            (4, f) => (gl::RGBA, f),
+            _ => fail!("unsupported texture type")
+        };
+
+        let id = display.context.context.exec(proc(gl) {
+            unsafe {
+                gl.PixelStorei(gl::UNPACK_ALIGNMENT, if width % 4 == 0 { 4 } else if height % 2 == 0 { 2 } else { 1 });
+
+                let id: gl::types::GLuint = mem::uninitialized();
+                gl.GenTextures(1, mem::transmute(&id));
+
+                gl.BindTexture(gl::TEXTURE_2D, id);
+
+                gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+                gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+                gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+                gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
+
+                gl.TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, width as i32, height as i32, 0, data_format as u32, data_type, data_raw);
+
+                gl.GenerateMipmap(gl::TEXTURE_2D);
+
+                id
+            }
+        }).get();
+
+        Texture {
+            texture: Arc::new(TextureImpl {
+                display: display.context.clone(),
+                id: id,
+                bind_point: gl::TEXTURE_2D,
+                width: width,
+                height: height,
+                depth: depth,
+                array_size: array_size
+            })
+        }
+    }
+
     /// Returns the width of the texture.
     pub fn get_width(&self) -> uint {
         self.texture.width
@@ -111,6 +173,9 @@ impl Texture {
     }
 
     /// Start drawing on this texture.
+    #[cfg(target_os = "windows")]
+    #[cfg(target_os = "linux")]
+    #[cfg(target_os = "macos")]
     pub fn draw(&mut self) -> super::Target {
         let display = self.texture.display.clone();
         let fbo = super::FrameBufferObject::new(display.clone());
@@ -120,8 +185,34 @@ impl Texture {
             let my_id = self.texture.id.clone();
             let fbo_id = fbo.id;
             self.texture.display.context.exec(proc(gl) {
-                gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fbo_id);
-                gl.FramebufferTexture(gl::DRAW_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, my_id, 0);
+                gl.BindFramebuffer(gl::FRAMEBUFFER, fbo_id);
+                gl.FramebufferTexture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, my_id, 0);
+            });
+        }
+
+        // returning the target
+        super::Target {
+            display: display,
+            display_hold: None,
+            texture: Some(self),
+            framebuffer: Some(fbo),
+            execute_end: None,
+        }
+    }
+
+    /// Start drawing on this texture.
+    #[cfg(target_os = "android")]
+    pub fn draw(&mut self) -> super::Target {
+        let display = self.texture.display.clone();
+        let fbo = super::FrameBufferObject::new(display.clone());
+
+        // binding the texture to the FBO
+        {
+            let my_id = self.texture.id.clone();
+            let fbo_id = fbo.id;
+            self.texture.display.context.exec(proc(gl) {
+                gl.BindFramebuffer(gl::FRAMEBUFFER, fbo_id);
+                gl.FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, my_id, 0);
             });
         }
 
@@ -149,7 +240,8 @@ impl Texture {
     /// Each pixel has R, G and B components between 0 and 255.
     // TODO: draft ; must be checked and turned public
     fn read_mipmap(&self, level: uint) -> Vec<u8> {
-        let bind_point = self.texture.bind_point;
+        unimplemented!()
+        /*let bind_point = self.texture.bind_point;
         let id = self.texture.id;
         let buffer_size = self.texture.width * self.texture.height * self.texture.depth *
             self.texture.array_size * 3;
@@ -168,7 +260,7 @@ impl Texture {
             }
 
             buffer
-        }).get()
+        }).get()*/
     }
 }
 
