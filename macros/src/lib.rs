@@ -11,5 +11,5 @@ mod vertex;
 pub fn registrar(registry: &mut rustc::plugin::Registry) {
     use syntax::parse::token;
     registry.register_syntax_extension(token::intern("vertex_format"),
-        syntax::ext::base::ItemDecorator(box vertex::expand));
+        syntax::ext::base::Decorator(box vertex::expand));
 }
