@@ -9,18 +9,18 @@ Easy-to-use high-level OpenGL3+ wrapper.
 # Initialization
 
 This library defines the `DisplayBuild` trait which is curently implemented only on
-`gl_init::WindowBuilder`.
+`glutin::WindowBuilder`.
 
 Initialization is done by creating a `WindowBuilder` and calling `build_simple_gl`.
 
 ```no_run
-extern crate gl_init;
+extern crate glutin;
 extern crate simple_gl;
 
 fn main() {
     use simple_gl::DisplayBuild;
 
-    let display = gl_init::WindowBuilder::new()
+    let display = glutin::WindowBuilder::new()
         .with_dimensions(1024, 768)
         .with_title("Hello world".to_string())
         .build_simple_gl().unwrap();
@@ -158,7 +158,7 @@ extern crate compile_msg;
 #[phase(plugin)]
 extern crate gl_generator;
 
-extern crate gl_init;
+extern crate glutin;
 extern crate libc;
 extern crate native;
 extern crate time;
@@ -651,7 +651,7 @@ pub trait DisplayBuild {
     fn build_simple_gl(self) -> Result<Display, ()>;
 }
 
-impl DisplayBuild for gl_init::WindowBuilder {
+impl DisplayBuild for glutin::WindowBuilder {
     fn build_simple_gl(self) -> Result<Display, ()> {
         let window = try!(self.build().map_err(|_| ()));
         let context = context::Context::new(window);
@@ -693,7 +693,7 @@ struct DisplayImpl {
 
 impl Display {
     /// Reads all events received by the window.
-    pub fn poll_events(&self) -> Vec<gl_init::Event> {
+    pub fn poll_events(&self) -> Vec<glutin::Event> {
         self.context.context.recv()
     }
 

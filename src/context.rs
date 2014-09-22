@@ -1,5 +1,5 @@
 use gl;
-use gl_init;
+use glutin;
 use native::NativeTaskBuilder;
 use std::sync::{Mutex, Future};
 use std::task::TaskBuilder;
@@ -12,11 +12,11 @@ enum Message {
 
 pub struct Context {
     commands: Mutex<Sender<Message>>,
-    events: Mutex<Receiver<gl_init::Event>>,
+    events: Mutex<Receiver<glutin::Event>>,
 }
 
 impl Context {
-    pub fn new(window: gl_init::Window) -> Context {
+    pub fn new(window: glutin::Window) -> Context {
         let (tx_events, rx_events) = channel();
         let (tx_commands, rx_commands) = channel();
 
@@ -94,7 +94,7 @@ impl Context {
         self.commands.lock().send(EndFrame);
     }
 
-    pub fn recv(&self) -> Vec<gl_init::Event> {
+    pub fn recv(&self) -> Vec<glutin::Event> {
         let mut events = self.events.lock();
 
         let mut result = Vec::new();

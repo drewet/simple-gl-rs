@@ -3,7 +3,7 @@
 #[phase(plugin)]
 extern crate simple_gl_macros;
 
-extern crate gl_init;
+extern crate glutin;
 extern crate simple_gl;
 
 #[vertex_format]
@@ -86,7 +86,7 @@ static TO_DEST_FRAGMENT_SRC: &'static str = "
 fn main() {
     use simple_gl::DisplayBuild;
 
-    let display = gl_init::WindowBuilder::new().build_simple_gl().unwrap();
+    let display = glutin::WindowBuilder::new().build_simple_gl().unwrap();
 
     let to_texture_program = simple_gl::Program::new(&display, TO_TEXTURE_VERTEX_SRC, TO_TEXTURE_FRAGMENT_SRC, None).unwrap();
     let to_dest_program = simple_gl::Program::new(&display, TO_DEST_VERTEX_SRC, TO_DEST_FRAGMENT_SRC, None).unwrap();
@@ -131,7 +131,7 @@ fn main() {
 
         for event in display.poll_events().move_iter() {
             match event {
-                gl_init::Closed => break 'main,
+                glutin::Closed => break 'main,
                 _ => ()
             }
         }

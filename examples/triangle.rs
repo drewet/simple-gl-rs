@@ -3,14 +3,14 @@
 #[phase(plugin)]
 extern crate simple_gl_macros;
 
-extern crate gl_init;
+extern crate glutin;
 extern crate simple_gl;
 
 fn main() {
     use simple_gl::DisplayBuild;
 
     // building the display, ie. the main object
-    let display = gl_init::WindowBuilder::new()
+    let display = glutin::WindowBuilder::new()
         .build_simple_gl()
         .unwrap();
 
@@ -96,7 +96,7 @@ fn main() {
         // polling and handling the events received by the window
         for event in display.poll_events().move_iter() {
             match event {
-                gl_init::Closed => break 'main,
+                glutin::Closed => break 'main,
                 _ => ()
             }
         }

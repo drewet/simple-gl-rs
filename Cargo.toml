@@ -9,7 +9,7 @@ git = "https://github.com/huonw/compile_msg"
 [dependencies.gl_generator]
 git = "http://github.com/bjz/gl-rs"
 
-[dependencies.gl_init]
+[dependencies.glutin]
 git = "http://github.com/tomaka/gl-init-rs"
 
 [dependencies.simple_gl_macros]
